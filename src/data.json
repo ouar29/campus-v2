@@ -1,0 +1,178 @@
+{
+  "id": "campus-1",
+  "name": "Campus Principal",
+  "buildings": [
+    {
+      "id": "bat-a",
+      "name": "Bâtiment A",
+      "floors": [
+        {
+          "id": "etage-0",
+          "name": "Rez-de-chaussée",
+          "polygon": [
+            [
+              0,
+              0
+            ],
+            [
+              40,
+              0
+            ],
+            [
+              40,
+              25
+            ],
+            [
+              0,
+              25
+            ]
+          ],
+          "rooms": [
+            {
+              "id": "salle-101",
+              "name": "Salle 101",
+              "capacity": 8,
+              "position": [
+                7,
+                6
+              ]
+            },
+            {
+              "id": "salle-102",
+              "name": "Salle 102",
+              "capacity": 20,
+              "position": [
+                22,
+                8
+              ]
+            },
+            {
+              "id": "salle-103",
+              "name": "Salle 103 (Board Room)",
+              "capacity": 4,
+              "position": [
+                7,
+                18
+              ]
+            }
+          ]
+        },
+        {
+          "id": "etage-1",
+          "name": "1er étage",
+          "polygon": [
+            [
+              0,
+              0
+            ],
+            [
+              40,
+              0
+            ],
+            [
+              40,
+              25
+            ],
+            [
+              0,
+              25
+            ]
+          ],
+          "rooms": [
+            {
+              "id": "salle-201",
+              "name": "Salle 201",
+              "capacity": 12,
+              "position": [
+                12,
+                10
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bat-b",
+      "name": "Bâtiment B",
+      "floors": [
+        {
+          "id": "b-etage-0",
+          "name": "Rez-de-chaussée",
+          "polygon": [
+            [
+              0,
+              0
+            ],
+            [
+              30,
+              0
+            ],
+            [
+              30,
+              30
+            ],
+            [
+              0,
+              30
+            ]
+          ],
+          "rooms": [
+            {
+              "id": "salle-b01",
+              "name": "Salle B01",
+              "capacity": 6,
+              "position": [
+                8,
+                8
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bldg-8ac5a339",
+      "name": "Bat C.",
+      "floors": [
+        {
+          "id": "floor-f4946b60",
+          "name": "RDC",
+          "polygon": [
+            [
+              4.06,
+              2.26
+            ],
+            [
+              28.9,
+              2.38
+            ],
+            [
+              29.98,
+              16.89
+            ],
+            [
+              12.58,
+              24.38
+            ],
+            [
+              0.46,
+              13.71
+            ]
+          ],
+          "rooms": [
+            {
+              "id": "room-7a301cba",
+              "name": "Accueil",
+              "capacity": 10,
+              "position": [
+                13.2,
+                20.55
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
