@@ -15,7 +15,7 @@ import base64
 from nicegui import events, ui
 
 from model import Campus, Building, Floor, Room
-from iso_view import build_overview_svg
+from iso_view import build_overview_parts, PALETTE
 
 DATA_PATH = "src/data.json"
 
@@ -26,6 +26,10 @@ DRAG_THRESHOLD_UNITS = 1.5   # distance max pour "attraper" une salle au clic
 
 DEFAULT_CANVAS_W = 50.0  # unités monde, utilisé pour dessiner un nouvel étage
 DEFAULT_CANVAS_H = 30.0
+
+CAMPUS_ICON_SIZE = 8.0        # taille (unités monde) du carré représentant un bâtiment sur le plan du campus
+CAMPUS_DRAG_THRESHOLD = 6.0   # distance max pour "attraper" un bâtiment au clic
+CAMPUS_PADDING = 15.0         # marge généreuse pour pouvoir glisser les bâtiments sans sortir du canevas
 
 
 # ---------------------------------------------------------------------------
@@ -111,12 +115,50 @@ def drawing_preview_content(points: list[list[float]], origin_x: float, origin_y
     if points:
         px_points = [world_to_px(x, y, origin_x, origin_y) for x, y in points]
         line_points = " ".join(f"{px},{py}" for px, py in px_points)
-        if len(points) >= 3:
-            parts.append(f'<polygon points="{line_points}" fill="#bfdbfe" fill-opacity="0.4" stroke="#1d4ed8" stroke-width="2" stroke-dasharray="6,4"/>')
-        else:
-            parts.append(f'<polyline points="{line_points}" fill="none" stroke="#1d4ed8" stroke-width="2" stroke-dasharray="6,4"/>')
-        for px, py in px_points:
-            parts.append(f'<circle cx="{px}" cy="{py}" r="5" fill="#1d4ed8"/>')
+        parts.append(f'<polyline points="{line_points}" fill="none" stroke="#1d4ed8" stroke-width="2" stroke-dasharray="6,4"/>')
+        for i, (px, py) in enumerate(px_points):
+            radius = 6 if i == 0 else 5
+            fill = "#dc2626" if i == 0 else "#1d4ed8"  # 1er point en rouge : double-clic ferme ici
+            parts.append(f'<circle cx="{px}" cy="{py}" r="{radius}" fill="{fill}"/>')
+    return "".join(parts)
+
+
+def campus_transform(campus: Campus) -> tuple[float, float, float, float]:
+    """Retourne (origin_x, origin_y, w_units, h_units) pour le plan du campus."""
+    if campus.buildings:
+        xs = [b.position[0] for b in campus.buildings]
+        ys = [b.position[1] for b in campus.buildings]
+        half = CAMPUS_ICON_SIZE / 2
+        min_x, max_x = min(xs) - half, max(xs) + half
+        min_y, max_y = min(ys) - half, max(ys) + half
+    else:
+        min_x, max_x, min_y, max_y = 0.0, 60.0, 0.0, 40.0
+    return (
+        min_x - CAMPUS_PADDING,
+        min_y - CAMPUS_PADDING,
+        (max_x - min_x) + 2 * CAMPUS_PADDING,
+        (max_y - min_y) + 2 * CAMPUS_PADDING,
+    )
+
+
+def campus_map_content(campus: Campus, origin_x: float, origin_y: float) -> str:
+    parts = []
+    half = CAMPUS_ICON_SIZE / 2
+    for building in campus.buildings:
+        bx, by = building.position
+        color = PALETTE[hash(building.id) % len(PALETTE)]
+        x1, y1 = world_to_px(bx - half, by - half, origin_x, origin_y)
+        x2, y2 = world_to_px(bx + half, by + half, origin_x, origin_y)
+        cx, cy = world_to_px(bx, by, origin_x, origin_y)
+        parts.append(
+            f'<rect x="{x1}" y="{y1}" width="{x2 - x1}" height="{y2 - y1}" rx="6" '
+            f'fill="{color}" fill-opacity="0.85" stroke="#1f2937" stroke-width="2">'
+            f'<title>{building.name} ({len(building.floors)} étage(s))</title></rect>'
+        )
+        parts.append(
+            f'<text x="{cx}" y="{cy}" font-size="13" text-anchor="middle" dominant-baseline="middle" '
+            f'fill="#0f172a" font-weight="600">{building.name}</text>'
+        )
     return "".join(parts)
 
 
@@ -132,6 +174,7 @@ def main() -> None:
         "floor": None,
         "mode": None,            # None | "drawing_floor" | "placing_room"
         "pending_floor_name": None,
+        "pending_floor_level": None,
         "pending_points": [],
         "pending_room_name": None,
         "pending_room_capacity": None,
@@ -180,7 +223,10 @@ def main() -> None:
             if mode == "drawing_floor":
                 origin_x, origin_y = -PADDING, -PADDING
                 with ui.row().classes("items-center gap-2 mb-2"):
-                    ui.label(f"Dessin du contour : « {state['pending_floor_name']} » — cliquez pour ajouter des sommets").classes("text-sm text-gray-600")
+                    ui.label(
+                        f"Dessin du contour : « {state['pending_floor_name']} » — "
+                        f"cliquez pour ajouter des sommets, double-cliquez pour fermer le contour"
+                    ).classes("text-sm text-gray-600")
                     ui.button("Terminer", on_click=finish_floor_drawing).props("size=sm color=primary")
                     ui.button("Annuler", on_click=cancel_floor_drawing).props("size=sm flat")
                 bg = blank_background(DEFAULT_CANVAS_W + 2 * PADDING, DEFAULT_CANVAS_H + 2 * PADDING)
@@ -188,7 +234,7 @@ def main() -> None:
                     bg,
                     content=drawing_preview_content(state["pending_points"], origin_x, origin_y),
                     on_mouse=on_mouse,
-                    events=["mousedown"],
+                    events=["mousedown", "dblclick"],
                 ).classes("w-full").style("max-width: 900px")
                 state["plan_image"] = img
                 return
@@ -221,6 +267,13 @@ def main() -> None:
 
         # --- Dessin du contour d'un nouvel étage ---
         if mode == "drawing_floor":
+            if e.type == "dblclick":
+                # Un double-clic déclenche deux mousedown avant l'événement dblclick :
+                # le dernier point ajouté correspond au 2e clic du double-clic, superflu.
+                if state["pending_points"]:
+                    state["pending_points"].pop()
+                finish_floor_drawing()
+                return
             if e.type != "mousedown":
                 return
             origin_x, origin_y = -PADDING, -PADDING
@@ -311,33 +364,68 @@ def main() -> None:
         if state["building"] is None:
             ui.notify("Sélectionne ou crée d'abord un bâtiment", color="warning")
             return
+        building = state["building"]
+        default_level = (max((f.level for f in building.floors), default=-1)) + 1
+        clone_options = {"__none__": "Aucun — dessiner un nouveau contour"}
+        clone_options.update({f.id: f.name for f in building.floors})
         with ui.dialog() as dialog, ui.card():
             ui.label("Nouvel étage").classes("text-lg font-semibold")
-            name_input = ui.input("Nom de l'étage (ex : RDC, 1er étage)").classes("w-full")
+            name_input = ui.input("Nom de l'étage (ex : RDC, 1er étage, Sous-sol)").classes("w-full")
+            level_input = ui.number(
+                "Niveau (0 = RDC, négatif = sous-sol, positif = étage)",
+                value=default_level,
+                precision=0,
+            ).classes("w-full")
+            clone_select = ui.select(
+                clone_options, value="__none__", label="Copier la géométrie de"
+            ).classes("w-full")
 
             def confirm() -> None:
                 if not name_input.value:
                     ui.notify("Le nom est requis", color="warning")
                     return
+                level = int(level_input.value if level_input.value is not None else default_level)
+
+                if clone_select.value and clone_select.value != "__none__":
+                    source_floor = get_floor(building, clone_select.value)
+                    if source_floor is None or not source_floor.polygon:
+                        ui.notify("Impossible de copier ce contour", color="warning")
+                        return
+                    new_floor = building.add_floor(
+                        name_input.value, [list(p) for p in source_floor.polygon], level=level
+                    )
+                    save()
+                    state["floor"] = new_floor
+                    floor_select.set_options(floors_options(building))
+                    floor_select.value = new_floor.id
+                    room_list.refresh()
+                    render_plan_area()
+                    dialog.close()
+                    return
+
                 state["mode"] = "drawing_floor"
                 state["pending_floor_name"] = name_input.value
+                state["pending_floor_level"] = level
                 state["pending_points"] = []
                 dialog.close()
                 render_plan_area()
 
             with ui.row().classes("justify-end w-full mt-2"):
                 ui.button("Annuler", on_click=dialog.close).props("flat")
-                ui.button("Dessiner le contour", on_click=confirm)
+                ui.button("Créer", on_click=confirm)
         dialog.open()
 
     def finish_floor_drawing() -> None:
         if len(state["pending_points"]) < 3:
             ui.notify("Il faut au moins 3 points pour former un contour", color="warning")
             return
-        floor = state["building"].add_floor(state["pending_floor_name"], state["pending_points"])
+        floor = state["building"].add_floor(
+            state["pending_floor_name"], state["pending_points"], level=state.get("pending_floor_level")
+        )
         save()
         state["mode"] = None
         state["pending_floor_name"] = None
+        state["pending_floor_level"] = None
         state["pending_points"] = []
         state["floor"] = floor
         floor_select.set_options(floors_options(state["building"]))
@@ -348,6 +436,7 @@ def main() -> None:
     def cancel_floor_drawing() -> None:
         state["mode"] = None
         state["pending_floor_name"] = None
+        state["pending_floor_level"] = None
         state["pending_points"] = []
         render_plan_area()
 
@@ -406,20 +495,170 @@ def main() -> None:
     # ------------------------------------------------------------------
 
     # ------------------------------------------------------------------
+    # Plan du campus (glisser-déposer des bâtiments)
+    # ------------------------------------------------------------------
+
+    def open_campus_map_dialog() -> None:
+        # Origine/dimensions figées à l'ouverture : elles ne doivent PAS bouger
+        # pendant une session de glisser-déposer, sinon le mapping pixel -> unité
+        # devient incohérent avec l'image de fond (déjà générée à taille fixe).
+        origin_x, origin_y, w_units, h_units = campus_transform(campus)
+        drag_state = {"id": None}
+        img_ref: dict = {"el": None}
+
+        def redraw() -> None:
+            if img_ref["el"] is not None:
+                img_ref["el"].content = campus_map_content(campus, origin_x, origin_y)
+
+        def on_campus_mouse(e: events.MouseEventArguments) -> None:
+            wx, wy = px_to_world(e.image_x, e.image_y, origin_x, origin_y)
+
+            if e.type == "mousedown":
+                nearest = min(
+                    campus.buildings,
+                    key=lambda b: (b.position[0] - wx) ** 2 + (b.position[1] - wy) ** 2,
+                    default=None,
+                )
+                if nearest is not None:
+                    dist = ((nearest.position[0] - wx) ** 2 + (nearest.position[1] - wy) ** 2) ** 0.5
+                    if dist <= CAMPUS_DRAG_THRESHOLD:
+                        drag_state["id"] = nearest.id
+
+            elif e.type == "mousemove":
+                if drag_state["id"] is None:
+                    return
+                building = next((b for b in campus.buildings if b.id == drag_state["id"]), None)
+                if building is None:
+                    return
+                building.position = [round(wx, 2), round(wy, 2)]
+                redraw()
+
+            elif e.type == "mouseup":
+                if drag_state["id"] is not None:
+                    save()
+                    drag_state["id"] = None
+
+        with ui.dialog().props("maximized") as dialog, ui.card().classes("w-full h-full"):
+            with ui.row().classes("items-center justify-between w-full"):
+                ui.label("Plan du campus — glisse les bâtiments pour les repositionner").classes("text-lg font-semibold")
+                ui.button(icon="close", on_click=dialog.close).props("flat round")
+            if not campus.buildings:
+                ui.label("Aucun bâtiment à positionner. Crée d'abord un bâtiment.").classes("text-gray-500")
+            else:
+                bg = blank_background(w_units, h_units)
+                img = ui.interactive_image(
+                    bg,
+                    content=campus_map_content(campus, origin_x, origin_y),
+                    on_mouse=on_campus_mouse,
+                    events=["mousedown", "mousemove", "mouseup"],
+                ).classes("w-full h-full")
+                img_ref["el"] = img
+        dialog.open()
+
+    # ------------------------------------------------------------------
     # Vue d'ensemble isométrique
     # ------------------------------------------------------------------
 
     def open_overview_dialog() -> None:
+        try:
+            html, js = build_overview_parts(campus)
+        except Exception as exc:  # évite un échec silencieux du bouton
+            ui.notify(f"Erreur lors de la génération de la vue d'ensemble : {exc}", color="negative")
+            raise
         with ui.dialog().props("maximized") as dialog, ui.card().classes("w-full h-full"):
             with ui.row().classes("items-center justify-between w-full"):
                 ui.label("Vue d'ensemble du campus").classes("text-lg font-semibold")
                 ui.button(icon="close", on_click=dialog.close).props("flat round")
-            ui.html(build_overview_svg(campus)).classes("w-full h-full")
+            ui.html(html).classes("w-full h-full")
         dialog.open()
+        ui.timer(0.05, lambda: ui.run_javascript(js), once=True)
+
+    # ------------------------------------------------------------------
+    # Liste éditable de toutes les salles (vue synthétique)
+    # ------------------------------------------------------------------
+
+    def open_room_table_dialog() -> None:
+        search = {"query": ""}
+
+        @ui.refreshable
+        def rows_view() -> None:
+            query = search["query"].strip().lower()
+            shown = False
+            for building in campus.buildings:
+                for floor in building.floors:
+                    for room in floor.rooms:
+                        if query and query not in room.name.lower() and query not in building.name.lower() and query not in floor.name.lower():
+                            continue
+                        shown = True
+                        render_room_row(building, floor, room)
+            if not shown:
+                ui.label("Aucune salle ne correspond à la recherche.").classes("text-gray-500 py-4")
+
+        def on_search_change(e) -> None:
+            search["query"] = e.value or ""
+            rows_view.refresh()
+
+        with ui.dialog().props("maximized") as dialog, ui.card().classes("w-full h-full"):
+            with ui.row().classes("items-center justify-between w-full mb-2"):
+                ui.label("Toutes les salles").classes("text-lg font-semibold")
+                ui.button(icon="close", on_click=dialog.close).props("flat round")
+
+            has_any_room = any(floor.rooms for building in campus.buildings for floor in building.floors)
+            if not has_any_room:
+                ui.label("Aucune salle créée pour l'instant.").classes("text-gray-500")
+            else:
+                ui.input(
+                    label="Rechercher une salle (nom, bâtiment, étage)...",
+                    on_change=on_search_change,
+                ).classes("w-full mb-2").props("clearable dense outlined")
+
+                with ui.scroll_area().classes("w-full h-full"):
+                    with ui.row().classes("w-full items-center gap-3 pb-2 border-b-2 border-gray-300 text-sm font-semibold text-gray-500"):
+                        ui.label("Bâtiment").classes("w-40")
+                        ui.label("Étage").classes("w-40")
+                        ui.label("Nom de la salle").classes("flex-1")
+                        ui.label("Capacité").classes("w-32")
+
+                    rows_view()
+
+        dialog.open()
+
+    def render_room_row(building: Building, floor: Floor, room: Room) -> None:
+        def on_name_change(e) -> None:
+            new_name = (e.value or "").strip()
+            if not new_name:
+                ui.notify("Le nom ne peut pas être vide", color="warning")
+                return
+            room.name = new_name
+            save()
+            room_list.refresh()
+            render_plan_area()
+
+        def on_capacity_change(e) -> None:
+            try:
+                new_capacity = int(e.value)
+            except (TypeError, ValueError):
+                return
+            if new_capacity < 1:
+                ui.notify("La capacité doit être d'au moins 1 personne", color="warning")
+                return
+            room.capacity = new_capacity
+            save()
+            room_list.refresh()
+            render_plan_area()
+
+        with ui.row().classes("w-full items-center gap-3 py-1 border-b border-gray-100"):
+            ui.label(building.name).classes("w-40 text-sm text-gray-600")
+            ui.label(floor.name).classes("w-40 text-sm text-gray-600")
+            ui.input(value=room.name, on_change=on_name_change).classes("flex-1").props("dense")
+            ui.number(value=room.capacity, min=1, precision=0, on_change=on_capacity_change).classes("w-32").props("dense")
 
     with ui.header().classes("items-center justify-between"):
         ui.label("Administration du Campus").classes("text-lg font-semibold")
-        ui.button("Vue d'ensemble (isométrique)", icon="view_in_ar", on_click=open_overview_dialog).props("outline color=white")
+        with ui.row().classes("items-center gap-2"):
+            ui.button("Toutes les salles", icon="table_rows", on_click=open_room_table_dialog).props("outline color=white")
+            ui.button("Plan du campus", icon="map", on_click=open_campus_map_dialog).props("outline color=white")
+            ui.button("Vue d'ensemble (isométrique)", icon="view_in_ar", on_click=open_overview_dialog).props("outline color=white")
 
     with ui.left_drawer().classes("gap-2 p-4"):
         ui.label("Sélection").classes("text-sm font-semibold text-gray-500")

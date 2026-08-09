@@ -28,6 +28,7 @@ class Room:
 class Floor:
     id: str
     name: str
+    level: int = 0   # 0 = rez-de-chaussée, négatif = sous-sol, positif = étage
     polygon: list[Point] = field(default_factory=list)
     rooms: list[Room] = field(default_factory=list)
 
@@ -41,12 +42,18 @@ class Floor:
 class Building:
     id: str
     name: str
+    position: Point = field(default_factory=lambda: [0.0, 0.0])
     floors: list[Floor] = field(default_factory=list)
 
-    def add_floor(self, name: str, polygon: list[Point]) -> Floor:
-        floor = Floor(id=f"floor-{uuid.uuid4().hex[:8]}", name=name, polygon=polygon)
+    def add_floor(self, name: str, polygon: list[Point], level: int | None = None) -> Floor:
+        if level is None:
+            level = (max((f.level for f in self.floors), default=-1)) + 1
+        floor = Floor(id=f"floor-{uuid.uuid4().hex[:8]}", name=name, level=level, polygon=polygon)
         self.floors.append(floor)
         return floor
+
+
+BUILDING_DEFAULT_SPACING = 20.0
 
 
 @dataclass
@@ -55,8 +62,11 @@ class Campus:
     name: str
     buildings: list[Building] = field(default_factory=list)
 
-    def add_building(self, name: str) -> Building:
-        building = Building(id=f"bldg-{uuid.uuid4().hex[:8]}", name=name)
+    def add_building(self, name: str, position: Point | None = None) -> Building:
+        if position is None:
+            max_x = max((b.position[0] for b in self.buildings), default=-BUILDING_DEFAULT_SPACING)
+            position = [max_x + BUILDING_DEFAULT_SPACING, 0.0]
+        building = Building(id=f"bldg-{uuid.uuid4().hex[:8]}", name=name, position=position)
         self.buildings.append(building)
         return building
 
@@ -77,13 +87,21 @@ class Campus:
         buildings = []
         for b in data.get("buildings", []):
             floors = []
-            for f in b.get("floors", []):
+            for f_index, f in enumerate(b.get("floors", [])):
                 rooms = [
                     Room(id=r["id"], name=r["name"], capacity=r["capacity"], position=r.get("position", [0.0, 0.0]))
                     for r in f.get("rooms", [])
                 ]
                 floors.append(
-                    Floor(id=f["id"], name=f["name"], polygon=f.get("polygon", []), rooms=rooms)
+                    Floor(
+                        id=f["id"],
+                        name=f["name"],
+                        level=f.get("level", f_index),
+                        polygon=f.get("polygon", []),
+                        rooms=rooms,
+                    )
                 )
-            buildings.append(Building(id=b["id"], name=b["name"], floors=floors))
+            buildings.append(
+                Building(id=b["id"], name=b["name"], position=b.get("position", [0.0, 0.0]), floors=floors)
+            )
         return Campus(id=data["id"], name=data["name"], buildings=buildings)

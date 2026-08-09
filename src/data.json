@@ -5,10 +5,49 @@
     {
       "id": "bat-a",
       "name": "Bâtiment A",
+      "position": [
+        0,
+        0
+      ],
       "floors": [
+        {
+          "id": "etage-sous-sol",
+          "name": "Sous-sol",
+          "level": -1,
+          "polygon": [
+            [
+              0,
+              0
+            ],
+            [
+              40,
+              0
+            ],
+            [
+              40,
+              25
+            ],
+            [
+              0,
+              25
+            ]
+          ],
+          "rooms": [
+            {
+              "id": "salle-ss1",
+              "name": "Local technique",
+              "capacity": 2,
+              "position": [
+                20,
+                12
+              ]
+            }
+          ]
+        },
         {
           "id": "etage-0",
           "name": "Rez-de-chaussée",
+          "level": 0,
           "polygon": [
             [
               0,
@@ -60,6 +99,7 @@
         {
           "id": "etage-1",
           "name": "1er étage",
+          "level": 1,
           "polygon": [
             [
               0,
@@ -82,7 +122,7 @@
             {
               "id": "salle-201",
               "name": "Salle 201",
-              "capacity": 12,
+              "capacity": 4,
               "position": [
                 12,
                 10
@@ -95,10 +135,15 @@
     {
       "id": "bat-b",
       "name": "Bâtiment B",
+      "position": [
+        20,
+        0
+      ],
       "floors": [
         {
           "id": "b-etage-0",
           "name": "Rez-de-chaussée",
+          "level": 0,
           "polygon": [
             [
               0,
@@ -125,49 +170,6 @@
               "position": [
                 8,
                 8
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "bldg-8ac5a339",
-      "name": "Bat C.",
-      "floors": [
-        {
-          "id": "floor-f4946b60",
-          "name": "RDC",
-          "polygon": [
-            [
-              4.06,
-              2.26
-            ],
-            [
-              28.9,
-              2.38
-            ],
-            [
-              29.98,
-              16.89
-            ],
-            [
-              12.58,
-              24.38
-            ],
-            [
-              0.46,
-              13.71
-            ]
-          ],
-          "rooms": [
-            {
-              "id": "room-7a301cba",
-              "name": "Accueil",
-              "capacity": 10,
-              "position": [
-                13.2,
-                20.55
               ]
             }
           ]
