@@ -31,6 +31,9 @@ CAMPUS_ICON_SIZE = 8.0        # taille (unités monde) du carré représentant u
 CAMPUS_DRAG_THRESHOLD = 6.0   # distance max pour "attraper" un bâtiment au clic
 CAMPUS_PADDING = 15.0         # marge généreuse pour pouvoir glisser les bâtiments sans sortir du canevas
 
+VERTEX_DRAG_THRESHOLD = 1.2   # distance max pour "attraper" un sommet de contour au clic
+EDGE_INSERT_THRESHOLD = 0.9   # distance max à une arête pour y insérer un nouveau sommet au clic
+
 
 # ---------------------------------------------------------------------------
 # Utilitaires géométrie / rendu SVG
@@ -123,14 +126,50 @@ def drawing_preview_content(points: list[list[float]], origin_x: float, origin_y
     return "".join(parts)
 
 
+def _reference_floor(building: Building) -> Floor | None:
+    """Étage de référence pour l'empreinte au sol : le niveau 0 (RDC) si présent,
+    sinon l'étage de niveau le plus bas (utile si un bâtiment n'a par ex. qu'un sous-sol)."""
+    if not building.floors:
+        return None
+    zero = next((f for f in building.floors if f.level == 0), None)
+    return zero if zero is not None else min(building.floors, key=lambda f: f.level)
+
+
+def building_footprint(building: Building) -> list[list[float]]:
+    """Polygone réel (coordonnées monde) de l'empreinte du bâtiment, basé sur
+    son étage de référence. Repli sur un carré générique si le bâtiment n'a
+    pas encore d'étage dessiné."""
+    floor = _reference_floor(building)
+    bx, by = building.position
+    if floor is not None and floor.polygon:
+        return [[bx + x, by + y] for x, y in floor.polygon]
+    half = CAMPUS_ICON_SIZE / 2
+    return [[bx - half, by - half], [bx + half, by - half], [bx + half, by + half], [bx - half, by + half]]
+
+
+def point_in_polygon(px: float, py: float, polygon: list[list[float]]) -> bool:
+    """Test point-dans-polygone (ray casting)."""
+    inside = False
+    n = len(polygon)
+    j = n - 1
+    for i in range(n):
+        xi, yi = polygon[i]
+        xj, yj = polygon[j]
+        if (yi > py) != (yj > py) and px < (xj - xi) * (py - yi) / (yj - yi + 1e-12) + xi:
+            inside = not inside
+        j = i
+    return inside
+
+
 def campus_transform(campus: Campus) -> tuple[float, float, float, float]:
-    """Retourne (origin_x, origin_y, w_units, h_units) pour le plan du campus."""
+    """Retourne (origin_x, origin_y, w_units, h_units) pour le plan du campus,
+    englobant l'empreinte réelle (RDC) de chaque bâtiment."""
     if campus.buildings:
-        xs = [b.position[0] for b in campus.buildings]
-        ys = [b.position[1] for b in campus.buildings]
-        half = CAMPUS_ICON_SIZE / 2
-        min_x, max_x = min(xs) - half, max(xs) + half
-        min_y, max_y = min(ys) - half, max(ys) + half
+        all_pts = [p for b in campus.buildings for p in building_footprint(b)]
+        xs = [p[0] for p in all_pts]
+        ys = [p[1] for p in all_pts]
+        min_x, max_x = min(xs), max(xs)
+        min_y, max_y = min(ys), max(ys)
     else:
         min_x, max_x, min_y, max_y = 0.0, 60.0, 0.0, 40.0
     return (
@@ -143,23 +182,64 @@ def campus_transform(campus: Campus) -> tuple[float, float, float, float]:
 
 def campus_map_content(campus: Campus, origin_x: float, origin_y: float) -> str:
     parts = []
-    half = CAMPUS_ICON_SIZE / 2
     for building in campus.buildings:
-        bx, by = building.position
+        footprint = building_footprint(building)
         color = PALETTE[hash(building.id) % len(PALETTE)]
-        x1, y1 = world_to_px(bx - half, by - half, origin_x, origin_y)
-        x2, y2 = world_to_px(bx + half, by + half, origin_x, origin_y)
-        cx, cy = world_to_px(bx, by, origin_x, origin_y)
+        pts_px = [world_to_px(x, y, origin_x, origin_y) for x, y in footprint]
+        points_str = " ".join(f"{px},{py}" for px, py in pts_px)
+        cx = sum(p[0] for p in pts_px) / len(pts_px)
+        cy = sum(p[1] for p in pts_px) / len(pts_px)
         parts.append(
-            f'<rect x="{x1}" y="{y1}" width="{x2 - x1}" height="{y2 - y1}" rx="6" '
-            f'fill="{color}" fill-opacity="0.85" stroke="#1f2937" stroke-width="2">'
-            f'<title>{building.name} ({len(building.floors)} étage(s))</title></rect>'
+            f'<polygon points="{points_str}" fill="{color}" fill-opacity="0.85" stroke="#1f2937" stroke-width="2">'
+            f'<title>{building.name} ({len(building.floors)} étage(s))</title></polygon>'
         )
         parts.append(
             f'<text x="{cx}" y="{cy}" font-size="13" text-anchor="middle" dominant-baseline="middle" '
             f'fill="#0f172a" font-weight="600">{building.name}</text>'
         )
     return "".join(parts)
+
+
+def floor_edit_content(floor: Floor, origin_x: float, origin_y: float) -> str:
+    """Plan de l'étage avec poignées de sommets pour l'édition du contour."""
+    parts = [floor_plan_content(floor, origin_x, origin_y)]
+    for i, (x, y) in enumerate(floor.polygon):
+        px, py = world_to_px(x, y, origin_x, origin_y)
+        parts.append(f'<circle cx="{px}" cy="{py}" r="7" fill="#f59e0b" stroke="#78350f" stroke-width="2"/>')
+    return "".join(parts)
+
+
+def nearest_vertex(polygon: list[list[float]], wx: float, wy: float) -> tuple[int | None, float]:
+    if not polygon:
+        return None, float("inf")
+    best_i, best_dist = None, float("inf")
+    for i, (x, y) in enumerate(polygon):
+        dist = ((x - wx) ** 2 + (y - wy) ** 2) ** 0.5
+        if dist < best_dist:
+            best_i, best_dist = i, dist
+    return best_i, best_dist
+
+
+def nearest_edge_insertion(polygon: list[list[float]], wx: float, wy: float, threshold: float) -> tuple[int, list[float]] | None:
+    """Trouve le point le plus proche sur une arête du polygone, si sous le seuil.
+    Retourne (index d'insertion, point) ou None."""
+    n = len(polygon)
+    best = None
+    best_dist = threshold
+    for i in range(n):
+        x1, y1 = polygon[i]
+        x2, y2 = polygon[(i + 1) % n]
+        dx, dy = x2 - x1, y2 - y1
+        seg_len2 = dx * dx + dy * dy
+        if seg_len2 == 0:
+            continue
+        t = max(0.0, min(1.0, ((wx - x1) * dx + (wy - y1) * dy) / seg_len2))
+        cx, cy = x1 + t * dx, y1 + t * dy
+        dist = ((wx - cx) ** 2 + (wy - cy) ** 2) ** 0.5
+        if dist < best_dist:
+            best_dist = dist
+            best = (i + 1, [cx, cy])
+    return best
 
 
 # ---------------------------------------------------------------------------
@@ -179,6 +259,7 @@ def main() -> None:
         "pending_room_name": None,
         "pending_room_capacity": None,
         "dragging_room_id": None,
+        "dragging_vertex_index": None,
         "plan_image": None,      # référence à l'élément ui.interactive_image courant
     }
     if state["building"] and state["building"].floors:
@@ -215,6 +296,19 @@ def main() -> None:
 
     plan_container = ui.column().classes("w-full h-full")
 
+    def start_geometry_edit() -> None:
+        if state["floor"] is None:
+            ui.notify("Sélectionne d'abord un étage", color="warning")
+            return
+        state["mode"] = "editing_geometry"
+        state["dragging_vertex_index"] = None
+        render_plan_area()
+
+    def stop_geometry_edit() -> None:
+        state["mode"] = None
+        state["dragging_vertex_index"] = None
+        render_plan_area()
+
     def render_plan_area() -> None:
         plan_container.clear()
         with plan_container:
@@ -245,8 +339,29 @@ def main() -> None:
                 state["plan_image"] = None
                 return
 
+            if mode == "editing_geometry":
+                origin_x, origin_y, w_units, h_units = transform_for_floor(floor)
+                with ui.row().classes("items-center gap-2 mb-2"):
+                    ui.label(
+                        "Édition du contour — glisse un sommet (orange), double-clique dessus pour le "
+                        "supprimer, clique sur une arête pour y ajouter un sommet"
+                    ).classes("text-sm text-gray-600")
+                    ui.button("Terminer l'édition", on_click=stop_geometry_edit).props("size=sm color=primary")
+                bg = blank_background(w_units, h_units)
+                img = ui.interactive_image(
+                    bg,
+                    content=floor_edit_content(floor, origin_x, origin_y),
+                    on_mouse=on_mouse,
+                    events=["mousedown", "mousemove", "mouseup", "dblclick"],
+                ).classes("w-full").style("max-width: 900px")
+                state["plan_image"] = img
+                return
+
             if state["mode"] == "placing_room":
                 ui.label(f"Clique sur le plan pour placer « {state['pending_room_name']} »").classes("text-sm text-blue-600 mb-2")
+            else:
+                with ui.row().classes("items-center gap-2 mb-2"):
+                    ui.button("Éditer le contour de cet étage", icon="edit", on_click=start_geometry_edit).props("size=sm outline")
 
             origin_x, origin_y, w_units, h_units = transform_for_floor(floor)
             bg = blank_background(w_units, h_units)
@@ -264,6 +379,57 @@ def main() -> None:
 
     def on_mouse(e: events.MouseEventArguments) -> None:
         mode = state["mode"]
+
+        # --- Édition du contour d'un étage existant ---
+        if mode == "editing_geometry":
+            floor = state["floor"]
+            if floor is None:
+                return
+            origin_x, origin_y, _, _ = transform_for_floor(floor)
+            wx, wy = px_to_world(e.image_x, e.image_y, origin_x, origin_y)
+
+            def redraw_edit() -> None:
+                if state["plan_image"] is not None:
+                    state["plan_image"].content = floor_edit_content(floor, origin_x, origin_y)
+
+            if e.type == "dblclick":
+                idx, dist = nearest_vertex(floor.polygon, wx, wy)
+                if idx is not None and dist <= VERTEX_DRAG_THRESHOLD and len(floor.polygon) > 3:
+                    floor.polygon.pop(idx)
+                    save()
+                    redraw_edit()
+                elif idx is not None and len(floor.polygon) <= 3:
+                    ui.notify("Un contour doit garder au moins 3 sommets", color="warning")
+                return
+
+            if e.type == "mousedown":
+                idx, dist = nearest_vertex(floor.polygon, wx, wy)
+                if idx is not None and dist <= VERTEX_DRAG_THRESHOLD:
+                    state["dragging_vertex_index"] = idx
+                    return
+                insertion = nearest_edge_insertion(floor.polygon, wx, wy, EDGE_INSERT_THRESHOLD)
+                if insertion is not None:
+                    insert_idx, point = insertion
+                    floor.polygon.insert(insert_idx, [round(point[0], 2), round(point[1], 2)])
+                    state["dragging_vertex_index"] = insert_idx
+                    save()
+                    redraw_edit()
+                return
+
+            if e.type == "mousemove":
+                idx = state.get("dragging_vertex_index")
+                if idx is None:
+                    return
+                floor.polygon[idx] = [round(wx, 2), round(wy, 2)]
+                redraw_edit()
+                return
+
+            if e.type == "mouseup":
+                if state.get("dragging_vertex_index") is not None:
+                    save()
+                    state["dragging_vertex_index"] = None
+                return
+            return
 
         # --- Dessin du contour d'un nouvel étage ---
         if mode == "drawing_floor":
@@ -514,15 +680,23 @@ def main() -> None:
             wx, wy = px_to_world(e.image_x, e.image_y, origin_x, origin_y)
 
             if e.type == "mousedown":
-                nearest = min(
-                    campus.buildings,
-                    key=lambda b: (b.position[0] - wx) ** 2 + (b.position[1] - wy) ** 2,
-                    default=None,
-                )
-                if nearest is not None:
-                    dist = ((nearest.position[0] - wx) ** 2 + (nearest.position[1] - wy) ** 2) ** 0.5
-                    if dist <= CAMPUS_DRAG_THRESHOLD:
-                        drag_state["id"] = nearest.id
+                target = None
+                for building in reversed(campus.buildings):  # dernier ajouté = au-dessus en cas de recouvrement
+                    if point_in_polygon(wx, wy, building_footprint(building)):
+                        target = building
+                        break
+                if target is None:
+                    nearest = min(
+                        campus.buildings,
+                        key=lambda b: (b.position[0] - wx) ** 2 + (b.position[1] - wy) ** 2,
+                        default=None,
+                    )
+                    if nearest is not None:
+                        dist = ((nearest.position[0] - wx) ** 2 + (nearest.position[1] - wy) ** 2) ** 0.5
+                        if dist <= CAMPUS_DRAG_THRESHOLD:
+                            target = nearest
+                if target is not None:
+                    drag_state["id"] = target.id
 
             elif e.type == "mousemove":
                 if drag_state["id"] is None:
@@ -652,6 +826,95 @@ def main() -> None:
             ui.label(floor.name).classes("w-40 text-sm text-gray-600")
             ui.input(value=room.name, on_change=on_name_change).classes("flex-1").props("dense")
             ui.number(value=room.capacity, min=1, precision=0, on_change=on_capacity_change).classes("w-32").props("dense")
+            ui.button(icon="tune", on_click=lambda: open_room_details_dialog(room)).props("flat round size=sm").tooltip("Détails avancés")
+
+    def open_room_details_dialog(room: Room) -> None:
+        extra = room.extra
+
+        with ui.dialog() as dialog, ui.card().classes("w-[640px] max-w-full"):
+            ui.label(f"Détails avancés — {room.name}").classes("text-lg font-semibold mb-2")
+
+            with ui.grid(columns=2).classes("w-full gap-3"):
+                old_name_input = ui.input("Ancien nom (oldName)", value=extra.get("oldName", "")).props("dense")
+                alt_name_input = ui.input("Nom alternatif (altName)", value=extra.get("altName", "")).props("dense")
+                access_input = ui.input("Accès (access)", value=extra.get("access", "")).props("dense")
+                zone_input = ui.input("Zone", value=extra.get("zone", "")).props("dense")
+                booking_type_input = ui.input("Type de réservation (roomBookingType)", value=extra.get("roomBookingType", "")).props("dense")
+                phone_input = ui.input("Téléphone (telephoneNumber)", value=extra.get("telephoneNumber", "")).props("dense")
+                type_input = ui.input("Type", value=extra.get("type", "")).props("dense")
+                room_type_input = ui.input("Type de salle (roomType)", value=extra.get("roomType", "meetingRoom")).props("dense")
+
+            available_switch = ui.checkbox("Disponible (available)", value=bool(extra.get("available", True))).classes("mt-1")
+            comment_input = ui.textarea("Commentaire", value=extra.get("comment", "")).classes("w-full")
+
+            raw_equipments = extra.get("equipments", [])
+            equipments_text = ", ".join(raw_equipments) if isinstance(raw_equipments, list) else ""
+            equipments_input = ui.input(
+                "Équipements (séparés par des virgules)", value=equipments_text
+            ).classes("w-full")
+
+            ui.label("Responsables de la salle (roomManagers)").classes("text-sm font-semibold text-gray-500 mt-3")
+            managers_container = ui.column().classes("w-full gap-1")
+            managers_state: list[dict] = [dict(m) for m in extra.get("roomManagers", {}).get("value", [])]
+
+            def render_managers() -> None:
+                managers_container.clear()
+                with managers_container:
+                    if not managers_state:
+                        ui.label("Aucun responsable renseigné.").classes("text-xs text-gray-400")
+                    for i in range(len(managers_state)):
+                        with ui.row().classes("items-center gap-2 w-full"):
+                            ui.input(
+                                "Nom", value=managers_state[i].get("name", ""),
+                                on_change=lambda e, i=i: managers_state[i].update(name=e.value),
+                            ).classes("flex-1").props("dense")
+                            ui.input(
+                                "Téléphone", value=managers_state[i].get("telephoneNumber", ""),
+                                on_change=lambda e, i=i: managers_state[i].update(telephoneNumber=e.value),
+                            ).classes("flex-1").props("dense")
+                            ui.input(
+                                "Email", value=managers_state[i].get("email", ""),
+                                on_change=lambda e, i=i: managers_state[i].update(email=e.value),
+                            ).classes("flex-1").props("dense")
+                            ui.button(icon="delete", on_click=lambda i=i: remove_manager(i)).props("flat round size=sm")
+
+            def remove_manager(i: int) -> None:
+                managers_state.pop(i)
+                render_managers()
+
+            def add_manager() -> None:
+                managers_state.append({"name": "", "telephoneNumber": "", "email": ""})
+                render_managers()
+
+            render_managers()
+            ui.button("+ Responsable", on_click=add_manager).props("size=sm outline").classes("mt-1")
+
+            def confirm() -> None:
+                extra["oldName"] = old_name_input.value or ""
+                extra["altName"] = alt_name_input.value or ""
+                extra["access"] = access_input.value or ""
+                extra["zone"] = zone_input.value or ""
+                extra["roomBookingType"] = booking_type_input.value or ""
+                extra["telephoneNumber"] = phone_input.value or ""
+                extra["type"] = type_input.value or ""
+                extra["roomType"] = room_type_input.value or "meetingRoom"
+                extra["available"] = bool(available_switch.value)
+                extra["comment"] = comment_input.value or ""
+                extra["equipments"] = [s.strip() for s in (equipments_input.value or "").split(",") if s.strip()]
+                extra["roomManagers"] = {
+                    "value": [
+                        m for m in managers_state
+                        if (m.get("name") or m.get("telephoneNumber") or m.get("email"))
+                    ]
+                }
+                save()
+                ui.notify("Détails enregistrés")
+                dialog.close()
+
+            with ui.row().classes("justify-end w-full mt-3"):
+                ui.button("Annuler", on_click=dialog.close).props("flat")
+                ui.button("Enregistrer", on_click=confirm)
+        dialog.open()
 
     with ui.header().classes("items-center justify-between"):
         ui.label("Administration du Campus").classes("text-lg font-semibold")
@@ -687,7 +950,7 @@ def main() -> None:
     with ui.column().classes("w-full h-full items-stretch p-4"):
         render_plan_area()
 
-    ui.run(title="Administration Campus", reload=False)
+    ui.run(title="Administration Campus", reload=True, dark=False)
 
 
 if __name__ in {"__main__", "__mp_main__"}:
