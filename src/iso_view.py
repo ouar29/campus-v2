@@ -16,17 +16,17 @@ from model import Campus
 ISO_COS30 = math.cos(math.radians(30))
 ISO_SIN30 = math.sin(math.radians(30))
 
-FOOTPRINT_SIZE = 10.0     # taille schématique (unités monde) de l'empreinte normalisée d'un étage
-FLOOR_HEIGHT = 6.0        # espacement vertical entre étages
-SLAB_THICKNESS = 1.2      # épaisseur visuelle de la "dalle" d'un étage (fine, pour bien voir les étages séparés)
+FOOTPRINT_SIZE = 18.0     # taille schématique (unités monde) de l'empreinte normalisée d'un étage (agrandie)
+FLOOR_HEIGHT = 11.0       # espacement vertical entre étages (agrandi, effet plus imposant)
+SLAB_THICKNESS = 2.2      # épaisseur visuelle de la "dalle" d'un étage
 TOP_FACE_OPACITY = 0.72   # transparence de la face supérieure (couleur de l'étage)
 WALL_OPACITY = 0.85       # transparence des parois latérales
 OVERVIEW_SCALE = 16       # pixels par unité monde
-MARGIN_PX = 60
+MARGIN_PX = 50            # marge serrée autour des bâtiments pour le cadrage initial (focus)
 GRID_SPACING = 10.0       # espacement (unités monde) de la grille au sol
-GRID_CANVAS_PADDING = 500 # marge supplémentaire (px) pour que la grille déborde largement des bâtiments
-GRID_COLOR = "#94a3b8"
-GRID_AXIS_COLOR = "#475569"
+GRID_CANVAS_PADDING = 500 # marge supplémentaire (px) pour que la grille déborde largement des bâtiments (pan)
+GRID_COLOR = "#4338ca"     # indigo-700, grille discrète sur fond sombre
+GRID_AXIS_COLOR = "#a5b4fc"  # indigo-300, axes principaux (plus visibles)
 
 PALETTE = ["#93c5fd", "#86efac", "#fca5a5", "#fcd34d", "#c4b5fd", "#67e8f9", "#fdba74"]
 
@@ -105,6 +105,26 @@ def _ground_grid_svg(screen_x_range: tuple[float, float], screen_y_range: tuple[
     return "".join(lines)
 
 
+POSITION_COMPRESSION_K = 14        # facteur de compression des écarts entre bâtiments (vue schématique uniquement)
+POSITION_COMPRESSION_POWER = 0.22  # exposant < 1 : compresse d'autant plus que l'écart est grand,
+                                    # tout en préservant un espacement suffisant pour des bâtiments proches
+
+
+def _compress_position(centroid_x: float, centroid_y: float, position: list[float]) -> tuple[float, float]:
+    """Compresse la position d'un bâtiment par rapport au centre du campus,
+    de façon non-linéaire (loi de puissance < 1) : les grands écarts sont
+    resserrés bien plus que les petits, qui restent quasiment préservés (pour
+    ne pas faire se chevaucher des bâtiments proches). Utilisé UNIQUEMENT pour
+    la mise en page de la vue isométrique schématique — n'affecte ni la
+    position réelle stockée, ni le plan du campus (vue du dessus), qui restent
+    à l'échelle réelle. Sans ça, deux bâtiments très éloignés sur le campus
+    réel écraseraient visuellement tous les autres dans cette vue d'ensemble."""
+    dx, dy = position[0] - centroid_x, position[1] - centroid_y
+    cx = (1 if dx >= 0 else -1) * (abs(dx) ** POSITION_COMPRESSION_POWER) * POSITION_COMPRESSION_K
+    cy = (1 if dy >= 0 else -1) * (abs(dy) ** POSITION_COMPRESSION_POWER) * POSITION_COMPRESSION_K
+    return cx, cy
+
+
 def _build_overview(campus: Campus) -> tuple[str, float, float]:
     """Construit le SVG complet. Retourne (svg, focus_width, focus_height) où
     focus_width/height est la taille du contenu utile (bâtiments + marge),
@@ -119,8 +139,14 @@ def _build_overview(campus: Campus) -> tuple[str, float, float]:
         all_x.append(px)
         all_y.append(py)
 
+    if campus.buildings:
+        centroid_x = sum(b.position[0] for b in campus.buildings) / len(campus.buildings)
+        centroid_y = sum(b.position[1] for b in campus.buildings) / len(campus.buildings)
+    else:
+        centroid_x = centroid_y = 0.0
+
     for building in campus.buildings:
-        bx, by = building.position
+        bx, by = _compress_position(centroid_x, centroid_y, building.position)
         color = PALETTE[hash(building.id) % len(PALETTE)]
         wall_color = _darken(color)
 
@@ -159,16 +185,18 @@ def _build_overview(campus: Campus) -> tuple[str, float, float]:
             cx = sum(p[0] for p in top_proj) / n
             cy = sum(p[1] for p in top_proj) / n
             elements.append(
-                f'<text x="{cx}" y="{cy}" font-size="11" text-anchor="middle" '
-                f'dominant-baseline="middle" fill="#1e293b" font-weight="600">{floor.name}</text>'
+                f'<text x="{cx}" y="{cy}" font-size="15" text-anchor="middle" '
+                f'dominant-baseline="middle" fill="#eef2ff" font-weight="600">{floor.name}</text>'
             )
 
-        # Étiquette bâtiment, sous la base du rez-de-chaussée
+        # Étiquette bâtiment, bien visible sous la base du rez-de-chaussée
+        # (halo sombre autour du texte pour rester lisible quelle que soit la couleur derrière)
         base_x, base_y = _iso(bx, by, 0)
-        record(base_x, base_y + 30)
+        record(base_x, base_y + 42)
         elements.append(
-            f'<text x="{base_x}" y="{base_y + 26}" font-size="13" text-anchor="middle" '
-            f'fill="#0f172a" font-weight="700">{building.name}</text>'
+            f'<text x="{base_x}" y="{base_y + 34}" font-size="24" text-anchor="middle" '
+            f'fill="#eef2ff" font-weight="700" paint-order="stroke" stroke="#1e1b4b" stroke-width="5" '
+            f'stroke-linejoin="round">{building.name}</text>'
         )
 
     if not all_x:
@@ -192,9 +220,15 @@ def _build_overview(campus: Campus) -> tuple[str, float, float]:
     grid = _ground_grid_svg((-offset_x, width - offset_x), (-offset_y, height - offset_y))
 
     body = grid + "".join(elements)
+    # Le viewBox initial cible directement la zone utile (bâtiments + petite marge),
+    # PAS le canevas complet (qui inclut la grande marge de grille pour le pan).
+    # C'est ce qui garantit un cadrage correct dès le premier rendu HTML/SVG,
+    # sans dépendre d'un calcul JavaScript exécuté après coup (source de bugs
+    # de timing avec l'animation d'ouverture du dialogue).
+    initial_view_box = f"{GRID_CANVAS_PADDING} {GRID_CANVAS_PADDING} {focus_width} {focus_height}"
     svg = (
-        f'<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
-        f'xmlns="http://www.w3.org/2000/svg" style="display:block; background:#f8fafc;">'
+        f'<svg width="{width}" height="{height}" viewBox="{initial_view_box}" '
+        f'xmlns="http://www.w3.org/2000/svg" style="display:block; width:100%; height:100%; background:#1e1b4b;">'
         f'<g transform="translate({offset_x},{offset_y})">{body}</g>'
         f"</svg>"
     )
@@ -209,6 +243,13 @@ def build_overview_svg(campus: Campus) -> str:
 def build_overview_parts(campus: Campus) -> tuple[str, str]:
     """Retourne (html, js) pour la vue d'ensemble isométrique avec navigation.
 
+    Le cadrage initial (zoom sur les bâtiments) est déjà correct dans le HTML
+    seul, via le viewBox calculé en Python (voir _build_overview) — le JS
+    n'est nécessaire que pour le pan/zoom INTERACTIF ensuite, ce qui rend le
+    premier affichage indépendant de tout timing d'exécution JS (contrairement
+    à une approche précédente qui recalculait le cadrage en JS après coup, et
+    qui pouvait tomber avant que le dialogue ait sa taille finale).
+
     Le JS est retourné séparément et doit être exécuté via ui.run_javascript()
     APRÈS que le html ait été inséré (ui.html) : un <script> inséré via
     innerHTML n'est PAS exécuté par le navigateur, donc on ne peut pas se
@@ -217,78 +258,72 @@ def build_overview_parts(campus: Campus) -> tuple[str, str]:
     svg_content, focus_w, focus_h = _build_overview(campus)
     uid = uuid.uuid4().hex
 
-    import re
-
-    match = re.search(r'width="([\d.]+)" height="([\d.]+)"', svg_content)
-    full_w, full_h = (match.group(1), match.group(2)) if match else (str(focus_w), str(focus_h))
-
     html = f"""
     <div id="iso-wrap-{uid}" style="width:100%; height:100%; min-height:70vh; overflow:hidden;
-         position:relative; background:#ffffff; cursor:grab; border-radius:8px;">
+         position:relative; background:#1e1b4b; cursor:grab; border-radius:8px;">
       <div style="position:absolute; top:8px; right:8px; z-index:10; display:flex; flex-direction:column; gap:4px;">
         <button onclick="window.isoZoom_{uid} && window.isoZoom_{uid}(1.25)"
-                style="width:34px;height:34px;border-radius:6px;border:1px solid #cbd5e1;background:white;cursor:pointer;font-size:18px;">+</button>
+                style="width:34px;height:34px;border-radius:6px;border:1px solid #6366f1;background:#312e81;color:#eef2ff;cursor:pointer;font-size:18px;">+</button>
         <button onclick="window.isoZoom_{uid} && window.isoZoom_{uid}(0.8)"
-                style="width:34px;height:34px;border-radius:6px;border:1px solid #cbd5e1;background:white;cursor:pointer;font-size:18px;">&minus;</button>
+                style="width:34px;height:34px;border-radius:6px;border:1px solid #6366f1;background:#312e81;color:#eef2ff;cursor:pointer;font-size:18px;">&minus;</button>
         <button onclick="window.isoReset_{uid} && window.isoReset_{uid}()"
-                style="width:34px;height:34px;border-radius:6px;border:1px solid #cbd5e1;background:white;cursor:pointer;font-size:14px;">&#8635;</button>
+                style="width:34px;height:34px;border-radius:6px;border:1px solid #6366f1;background:#312e81;color:#eef2ff;cursor:pointer;font-size:14px;">&#8635;</button>
       </div>
-      <div id="iso-inner-{uid}" style="position:absolute; top:0; left:0; transform-origin: 0 0;">
-        {svg_content}
-      </div>
+      {svg_content}
     </div>
     """
 
     js = f"""
     (function() {{
         const wrap = document.getElementById("iso-wrap-{uid}");
-        const inner = document.getElementById("iso-inner-{uid}");
-        if (!wrap || !inner) {{ return; }}
-        const svgW = {full_w};
-        const svgH = {full_h};
-        const focusW = {focus_w};
-        const focusH = {focus_h};
+        if (!wrap) {{ return; }}
+        const svgEl = wrap.querySelector("svg");
+        if (!svgEl) {{ return; }}
 
-        let scale = 1, tx = 0, ty = 0;
-        let dragging = false, startX = 0, startY = 0, startTx = 0, startTy = 0;
+        // Le viewBox initial (déjà cadré sur les bâtiments, calculé en Python)
+        // sert de référence pour le bouton "reset".
+        const initial = svgEl.getAttribute("viewBox").split(" ").map(Number);
+        let [vx, vy, vw, vh] = initial;
 
-        function applyTransform() {{
-            inner.style.transform = "translate(" + tx + "px, " + ty + "px) scale(" + scale + ")";
+        function applyViewBox() {{
+            svgEl.setAttribute("viewBox", vx + " " + vy + " " + vw + " " + vh);
         }}
 
-        function fitToView() {{
-            const rect = wrap.getBoundingClientRect();
-            const fit = Math.min(rect.width / focusW, rect.height / focusH) * 0.9;
-            scale = Math.max(0.05, fit || 1);
-            // Le contenu utile (bâtiments) est centré dans le grand canevas (grille) :
-            // on centre donc le canevas complet, à l'échelle calculée sur le contenu utile.
-            tx = rect.width / 2 - (svgW / 2) * scale;
-            ty = rect.height / 2 - (svgH / 2) * scale;
-            applyTransform();
-        }}
+        let dragging = false, startX = 0, startY = 0, startVx = 0, startVy = 0;
 
         window["isoZoom_{uid}"] = function(factor) {{
             if (!wrap.isConnected) return;
             const rect = wrap.getBoundingClientRect();
-            const cx = rect.width / 2, cy = rect.height / 2;
-            const newScale = Math.min(5, Math.max(0.1, scale * factor));
-            tx = cx - (cx - tx) * (newScale / scale);
-            ty = cy - (cy - ty) * (newScale / scale);
-            scale = newScale;
-            applyTransform();
+            const mx = rect.width / 2, my = rect.height / 2;
+            const worldX = vx + (mx / rect.width) * vw;
+            const worldY = vy + (my / rect.height) * vh;
+            const newVw = vw / factor;
+            const newVh = vh / factor;
+            vx = worldX - (mx / rect.width) * newVw;
+            vy = worldY - (my / rect.height) * newVh;
+            vw = newVw;
+            vh = newVh;
+            applyViewBox();
         }};
-        window["isoReset_{uid}"] = fitToView;
+
+        window["isoReset_{uid}"] = function() {{
+            [vx, vy, vw, vh] = initial;
+            applyViewBox();
+        }};
 
         wrap.addEventListener("mousedown", function(e) {{
             dragging = true;
-            startX = e.clientX; startY = e.clientY; startTx = tx; startTy = ty;
+            startX = e.clientX; startY = e.clientY; startVx = vx; startVy = vy;
             wrap.style.cursor = "grabbing";
         }});
         window.addEventListener("mousemove", function(e) {{
             if (!dragging || !wrap.isConnected) return;
-            tx = startTx + (e.clientX - startX);
-            ty = startTy + (e.clientY - startY);
-            applyTransform();
+            const rect = wrap.getBoundingClientRect();
+            const dxWorld = (e.clientX - startX) * (vw / rect.width);
+            const dyWorld = (e.clientY - startY) * (vh / rect.height);
+            vx = startVx - dxWorld;
+            vy = startVy - dyWorld;
+            applyViewBox();
         }});
         window.addEventListener("mouseup", function() {{
             if (!dragging) return;
@@ -299,15 +334,17 @@ def build_overview_parts(campus: Campus) -> tuple[str, str]:
             e.preventDefault();
             const rect = wrap.getBoundingClientRect();
             const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-            const factor = e.deltaY < 0 ? 1.12 : 0.89;
-            const newScale = Math.min(5, Math.max(0.1, scale * factor));
-            tx = mx - (mx - tx) * (newScale / scale);
-            ty = my - (my - ty) * (newScale / scale);
-            scale = newScale;
-            applyTransform();
+            const factor = e.deltaY < 0 ? 1.15 : 0.87;
+            const worldX = vx + (mx / rect.width) * vw;
+            const worldY = vy + (my / rect.height) * vh;
+            const newVw = vw / factor;
+            const newVh = vh / factor;
+            vx = worldX - (mx / rect.width) * newVw;
+            vy = worldY - (my / rect.height) * newVh;
+            vw = newVw;
+            vh = newVh;
+            applyViewBox();
         }}, {{ passive: false }});
-
-        fitToView();
     }})();
     """
 

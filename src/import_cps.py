@@ -33,10 +33,32 @@ Usage :
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
 from model import Campus, Building, Floor, Room
+
+
+def _load_json_lenient(path: str) -> dict:
+    """Charge le JSON en tolérant les virgules traînantes avant } ou ] :
+    certains exports du projet source semblent en produire (bug côté export,
+    pas du JSON strictement valide). On tente d'abord un parsing strict ;
+    en cas d'échec, on retire les virgules traînantes et on réessaie."""
+    text = Path(path).read_text(encoding="utf-8")
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as first_error:
+        cleaned = re.sub(r",(\s*[}\]])", r"\1", text)
+        try:
+            data = json.loads(cleaned)
+        except json.JSONDecodeError:
+            raise first_error  # le nettoyage n'a pas suffi : on remonte l'erreur d'origine
+        print(
+            f"Attention : {path} contenait des virgules traînantes non valides en JSON strict "
+            "(corrigées automatiquement à la lecture). Vérifie l'outil d'export source si ça se répète."
+        )
+        return data
 
 
 def _parse_level(name: str, fallback_index: int) -> int:
@@ -52,7 +74,7 @@ def _points_to_polygon(points: list[float]) -> list[list[float]]:
 
 def convert(cps_path: str) -> tuple[Campus, int]:
     """Retourne (Campus converti, nombre de salles ignorées car hors périmètre)."""
-    raw = json.loads(Path(cps_path).read_text(encoding="utf-8"))
+    raw = _load_json_lenient(cps_path)
 
     campus_extra = {k: v for k, v in raw.items() if k != "buildings"}
     campus = Campus(id="campus-imported", name=raw.get("name", "Campus importé"), extra=campus_extra)

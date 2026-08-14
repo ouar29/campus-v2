@@ -6,7 +6,7 @@
       "id": "bldg-437",
       "name": "Accueil",
       "position": [
-        43.0,
+        85.0,
         516.0
       ],
       "floors": [
@@ -20,8 +20,8 @@
               -2.0
             ],
             [
-              47.0,
-              -2.0
+              40.03,
+              -2.35
             ],
             [
               54.0,
@@ -110,8 +110,8 @@
               "name": "GUIGUI",
               "capacity": 10,
               "position": [
-                136.0,
-                41.0
+                136.75,
+                42.94
               ],
               "extra": {
                 "oldName": "",
@@ -225,10 +225,445 @@
         "id": 437,
         "name": "Accueil"
       }
+    },
+    {
+      "id": "bldg-44",
+      "name": "T",
+      "position": [
+        0.0,
+        74.03
+      ],
+      "floors": [
+        {
+          "id": "floor-553",
+          "name": "RDC",
+          "level": 0,
+          "polygon": [
+            [
+              4.0,
+              24.0
+            ],
+            [
+              26.0,
+              2.0
+            ],
+            [
+              54.0,
+              2.0
+            ],
+            [
+              76.0,
+              22.0
+            ],
+            [
+              86.0,
+              44.0
+            ],
+            [
+              15.0,
+              75.0
+            ],
+            [
+              5.0,
+              55.0
+            ],
+            [
+              5.0,
+              23.0
+            ]
+          ],
+          "rooms": [],
+          "extra": {
+            "points": [
+              4.0,
+              24.0,
+              26.0,
+              2.0,
+              54.0,
+              2.0,
+              76.0,
+              22.0,
+              86.0,
+              44.0,
+              15.0,
+              75.0,
+              5.0,
+              55.0,
+              5.0,
+              23.0
+            ],
+            "zoneMarkers": [],
+            "dimensions": {
+              "width": 1.0,
+              "height": 1.0,
+              "hash": 0
+            },
+            "location": {
+              "x": 0.0,
+              "y": 0.0,
+              "z": 0.0,
+              "hash": 0
+            },
+            "id": 553,
+            "name": "RDC"
+          }
+        },
+        {
+          "id": "floor-662",
+          "name": "1",
+          "level": 1,
+          "polygon": [
+            [
+              4.0,
+              24.0
+            ],
+            [
+              26.0,
+              2.0
+            ],
+            [
+              54.0,
+              2.0
+            ],
+            [
+              76.0,
+              22.0
+            ],
+            [
+              86.0,
+              44.0
+            ],
+            [
+              15.0,
+              75.0
+            ],
+            [
+              5.0,
+              55.0
+            ],
+            [
+              5.0,
+              23.0
+            ]
+          ],
+          "rooms": [
+            {
+              "id": "room-690",
+              "name": "ROSCOFF",
+              "capacity": 15,
+              "position": [
+                47.0,
+                23.5
+              ],
+              "extra": {
+                "oldName": "",
+                "altName": "ROSCOFF 10",
+                "roomManagers": {
+                  "value": [
+                    {
+                      "name": "Isa"
+                    }
+                  ]
+                },
+                "access": "RESTRICTED",
+                "available": true,
+                "capacity": 15,
+                "equipments": [],
+                "roomBookingType": "PROJECT_DEDICATED",
+                "comment": "",
+                "zone": "",
+                "roomType": "meetingRoom",
+                "telephoneNumber": "3 31 28 30",
+                "type": "NONE",
+                "dimensions": {
+                  "width": 20.0,
+                  "height": 20.0,
+                  "hash": 0
+                },
+                "location": {
+                  "x": 47.0,
+                  "y": 23.5,
+                  "z": 0.0,
+                  "hash": 0
+                },
+                "id": 690,
+                "name": "ROSCOFF"
+              }
+            }
+          ],
+          "extra": {
+            "points": [
+              4.0,
+              24.0,
+              26.0,
+              2.0,
+              54.0,
+              2.0,
+              76.0,
+              22.0,
+              86.0,
+              44.0,
+              15.0,
+              75.0,
+              5.0,
+              55.0,
+              5.0,
+              23.0
+            ],
+            "zoneMarkers": [],
+            "dimensions": {
+              "width": 1.0,
+              "height": 1.0,
+              "hash": 0
+            },
+            "location": {
+              "x": 0.0,
+              "y": 0.0,
+              "z": -50.0,
+              "hash": 0
+            },
+            "id": 662,
+            "name": "1"
+          }
+        },
+        {
+          "id": "floor-86",
+          "name": "2",
+          "level": 2,
+          "polygon": [
+            [
+              4.0,
+              24.0
+            ],
+            [
+              26.0,
+              2.0
+            ],
+            [
+              54.0,
+              2.0
+            ],
+            [
+              76.0,
+              22.0
+            ],
+            [
+              86.0,
+              44.0
+            ],
+            [
+              15.0,
+              75.0
+            ],
+            [
+              5.0,
+              55.0
+            ],
+            [
+              5.0,
+              23.0
+            ]
+          ],
+          "rooms": [
+            {
+              "id": "room-983",
+              "name": "CAP FERRAT",
+              "capacity": 8,
+              "position": [
+                21.0,
+                47.0
+              ],
+              "extra": {
+                "oldName": "",
+                "altName": "FERRAT",
+                "roomManagers": {
+                  "value": [
+                    {
+                      "name": "Isa",
+                      "telephoneNumber": "",
+                      "email": ""
+                    },
+                    {
+                      "name": "Coco",
+                      "telephoneNumber": "02 98 25 63 56",
+                      "email": ""
+                    }
+                  ]
+                },
+                "access": "CD",
+                "available": true,
+                "capacity": 8,
+                "equipments": [],
+                "roomBookingType": "PROJECT_DEDICATED",
+                "comment": "",
+                "zone": "",
+                "roomType": "meetingRoom",
+                "telephoneNumber": "0645454545",
+                "type": "NONE",
+                "dimensions": {
+                  "width": 20.0,
+                  "height": 20.0,
+                  "hash": 0
+                },
+                "location": {
+                  "x": 21.0,
+                  "y": 47.0,
+                  "z": 0.0,
+                  "hash": 0
+                },
+                "id": 983,
+                "name": "CAP FERRAT"
+              }
+            }
+          ],
+          "extra": {
+            "points": [
+              4.0,
+              24.0,
+              26.0,
+              2.0,
+              54.0,
+              2.0,
+              76.0,
+              22.0,
+              86.0,
+              44.0,
+              15.0,
+              75.0,
+              5.0,
+              55.0,
+              5.0,
+              23.0
+            ],
+            "zoneMarkers": [],
+            "dimensions": {
+              "width": 1.0,
+              "height": 1.0,
+              "hash": 0
+            },
+            "location": {
+              "x": 0.0,
+              "y": 0.0,
+              "z": -100.0,
+              "hash": 0
+            },
+            "id": 86,
+            "name": "2"
+          }
+        }
+      ],
+      "extra": {
+        "location": {
+          "x": 235.0,
+          "y": -150.0,
+          "z": 0.0,
+          "hash": 0
+        },
+        "id": 44,
+        "name": "T"
+      }
+    },
+    {
+      "id": "bldg-412447b2",
+      "name": "Zob",
+      "position": [
+        105.0,
+        250.0
+      ],
+      "floors": [
+        {
+          "id": "floor-0b8a4308",
+          "name": "RDC",
+          "level": 0,
+          "polygon": [
+            [
+              10.96,
+              4.0
+            ],
+            [
+              31.0,
+              5.86
+            ],
+            [
+              31.36,
+              9.09
+            ],
+            [
+              19.6,
+              21.81
+            ],
+            [
+              5.5,
+              14.31
+            ]
+          ],
+          "rooms": [
+            {
+              "id": "room-a0fea8c8",
+              "name": "xadad",
+              "capacity": 10,
+              "position": [
+                17.26,
+                11.12
+              ],
+              "extra": {}
+            }
+          ],
+          "extra": {}
+        }
+      ],
+      "extra": {}
+    },
+    {
+      "id": "bldg-f70d9d9c",
+      "name": "Bat BM13",
+      "position": [
+        0.0,
+        350.0
+      ],
+      "floors": [
+        {
+          "id": "floor-12f41eeb",
+          "name": "RDC",
+          "level": 0,
+          "polygon": [
+            [
+              0.22,
+              0.04
+            ],
+            [
+              19.43,
+              0.18
+            ],
+            [
+              19.59,
+              9.98
+            ],
+            [
+              -0.02,
+              9.84
+            ]
+          ],
+          "rooms": [
+            {
+              "id": "room-94b362c9",
+              "name": "xzczczc",
+              "capacity": 10,
+              "position": [
+                11.27,
+                4.28
+              ],
+              "extra": {}
+            }
+          ],
+          "extra": {}
+        }
+      ],
+      "extra": {}
     }
   ],
   "extra": {
     "name": "Site",
-    "version": "Version : 10-08-2026"
+    "version": "Version : 11-08-2026"
   }
 }
