@@ -20,6 +20,7 @@ from __future__ import annotations
 import itertools
 import json
 import sys
+from datetime import date
 from pathlib import Path
 
 from model import Campus, Building, Floor, Room
@@ -92,7 +93,7 @@ def export_building(building: Building) -> dict:
 def export_campus(campus: Campus) -> dict:
     out = {k: v for k, v in campus.extra.items() if k != "buildings"}
     out["name"] = campus.name
-    out.setdefault("version", "exporté depuis l'admin campus")
+    out["version"] = date.today().isoformat()
     out["buildings"] = [export_building(b) for b in campus.buildings]
     return out
 

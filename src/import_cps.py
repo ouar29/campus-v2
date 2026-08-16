@@ -41,22 +41,44 @@ from model import Campus, Building, Floor, Room
 
 
 def _load_json_lenient(path: str) -> dict:
-    """Charge le JSON en tolérant les virgules traînantes avant } ou ] :
-    certains exports du projet source semblent en produire (bug côté export,
-    pas du JSON strictement valide). On tente d'abord un parsing strict ;
-    en cas d'échec, on retire les virgules traînantes et on réessaie."""
+    """Charge un JSON CPS avec tolérance sur erreurs d'export fréquentes.
+
+    Le format source peut contenir :
+    - virgules finales avant `}` ou `]`
+    - doublons de clôture d'objet/array (`},` puis `},` avant l'élément suivant)
+
+    On tente d'abord le parse strict. En cas d'échec, on applique un petit
+    nettoyage en boucle tant que la chaîne change.
+    """
     text = Path(path).read_text(encoding="utf-8")
     try:
         return json.loads(text)
     except json.JSONDecodeError as first_error:
-        cleaned = re.sub(r",(\s*[}\]])", r"\1", text)
+        cleaned = text
+        previous = None
+        while cleaned != previous:
+            previous = cleaned
+            # IMPORTANT : la détection d'accolade dupliquée DOIT passer avant le
+            # nettoyage des virgules traînantes. Sinon, ce dernier retire déjà la
+            # virgule de la première accolade fermante en trop (elle est bien
+            # suivie d'un "}"), ce qui empêche ensuite le motif de détection de
+            # doublon (qui exige "}," sur les deux lignes) de matcher, et
+            # l'accolade superflue n'est jamais retirée.
+            cleaned = re.sub(
+                r"(?m)^(?P<indent1>[ \t]*)\},\s*\n(?P<indent2>[ \t]*)\},\s*\n(?P<indent3>[ \t]*)\{",
+                r"\g<indent1>},\n\g<indent3>{",
+                cleaned,
+            )
+            cleaned = re.sub(r",(\s*[}\]])", r"\1", cleaned)
+
         try:
             data = json.loads(cleaned)
         except json.JSONDecodeError:
-            raise first_error  # le nettoyage n'a pas suffi : on remonte l'erreur d'origine
+            raise first_error
+
         print(
-            f"Attention : {path} contenait des virgules traînantes non valides en JSON strict "
-            "(corrigées automatiquement à la lecture). Vérifie l'outil d'export source si ça se répète."
+            f"Attention : {path} contenait des erreurs de syntaxe JSON non strictes de type export "
+            "(virgules finales / clôtures dupliquées). Vérifie l'outil d'export source si ça se répèle."
         )
         return data
 
