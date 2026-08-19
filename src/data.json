@@ -6,7 +6,7 @@
       "id": "bldg-437",
       "name": "Accueil",
       "position": [
-        43.0,
+        85.0,
         516.0
       ],
       "floors": [
@@ -20,8 +20,8 @@
               -2.0
             ],
             [
-              47.0,
-              -2.0
+              40.03,
+              -2.35
             ],
             [
               54.0,
@@ -110,8 +110,8 @@
               "name": "GUIGUI",
               "capacity": 10,
               "position": [
-                136.0,
-                41.0
+                136.75,
+                42.94
               ],
               "extra": {
                 "oldName": "",
@@ -141,8 +141,8 @@
                   "hash": 0
                 },
                 "location": {
-                  "x": 136.0,
-                  "y": 41.0,
+                  "x": 136.75,
+                  "y": 42.94,
                   "z": 0.0,
                   "hash": 0
                 },
@@ -155,8 +155,8 @@
             "points": [
               10.0,
               -2.0,
-              47.0,
-              -2.0,
+              40.03,
+              -2.35,
               54.0,
               4.0,
               64.0,
@@ -217,7 +217,7 @@
       ],
       "extra": {
         "location": {
-          "x": 43.0,
+          "x": 85.0,
           "y": 516.0,
           "z": 0.0,
           "hash": 0
@@ -230,8 +230,8 @@
       "id": "bldg-44",
       "name": "T",
       "position": [
-        235.0,
-        -150.0
+        0.0,
+        74.03
       ],
       "floors": [
         {
@@ -482,6 +482,11 @@
                       "name": "Isa",
                       "telephoneNumber": "",
                       "email": ""
+                    },
+                    {
+                      "name": "Coco",
+                      "telephoneNumber": "02 98 25 63 56",
+                      "email": ""
                     }
                   ]
                 },
@@ -549,18 +554,244 @@
       ],
       "extra": {
         "location": {
-          "x": 235.0,
-          "y": -150.0,
+          "x": 0.0,
+          "y": 74.03,
           "z": 0.0,
           "hash": 0
         },
         "id": 44,
         "name": "T"
       }
+    },
+    {
+      "id": "bldg-900009",
+      "name": "Zob",
+      "position": [
+        105.0,
+        250.0
+      ],
+      "floors": [
+        {
+          "id": "floor-900010",
+          "name": "RDC",
+          "level": 0,
+          "polygon": [
+            [
+              10.96,
+              4.0
+            ],
+            [
+              31.0,
+              5.86
+            ],
+            [
+              31.36,
+              9.09
+            ],
+            [
+              19.6,
+              21.81
+            ],
+            [
+              5.5,
+              14.31
+            ]
+          ],
+          "rooms": [
+            {
+              "id": "room-900011",
+              "name": "xadad",
+              "capacity": 10,
+              "position": [
+                17.26,
+                11.12
+              ],
+              "extra": {
+                "id": 900011,
+                "name": "xadad",
+                "capacity": 10,
+                "location": {
+                  "x": 17.26,
+                  "y": 11.12,
+                  "z": 0.0,
+                  "hash": 0
+                },
+                "roomType": "meetingRoom",
+                "dimensions": {
+                  "width": 1.0,
+                  "height": 1.0,
+                  "hash": 0
+                },
+                "oldName": "",
+                "altName": "",
+                "roomManagers": {
+                  "value": []
+                },
+                "access": "NONE",
+                "available": true,
+                "equipments": [],
+                "roomBookingType": "",
+                "comment": "",
+                "zone": "",
+                "telephoneNumber": "",
+                "type": "NONE"
+              }
+            }
+          ],
+          "extra": {
+            "id": 900010,
+            "name": "RDC",
+            "points": [
+              10.96,
+              4.0,
+              31.0,
+              5.86,
+              31.36,
+              9.09,
+              19.6,
+              21.81,
+              5.5,
+              14.31
+            ],
+            "zoneMarkers": [],
+            "dimensions": {
+              "width": 1.0,
+              "height": 1.0,
+              "hash": 0
+            },
+            "location": {
+              "x": 0.0,
+              "y": 0.0,
+              "z": 0.0,
+              "hash": 0
+            }
+          }
+        }
+      ],
+      "extra": {
+        "id": 900009,
+        "name": "Zob",
+        "location": {
+          "x": 105.0,
+          "y": 250.0,
+          "z": 0.0,
+          "hash": 0
+        }
+      }
+    },
+    {
+      "id": "bldg-900012",
+      "name": "Bat BM13",
+      "position": [
+        0.0,
+        350.0
+      ],
+      "floors": [
+        {
+          "id": "floor-900013",
+          "name": "RDC",
+          "level": 0,
+          "polygon": [
+            [
+              0.22,
+              0.04
+            ],
+            [
+              19.43,
+              0.18
+            ],
+            [
+              19.59,
+              9.98
+            ],
+            [
+              -0.02,
+              9.84
+            ]
+          ],
+          "rooms": [
+            {
+              "id": "room-900014",
+              "name": "xzczczc",
+              "capacity": 10,
+              "position": [
+                11.27,
+                4.28
+              ],
+              "extra": {
+                "id": 900014,
+                "name": "xzczczc",
+                "capacity": 10,
+                "location": {
+                  "x": 11.27,
+                  "y": 4.28,
+                  "z": 0.0,
+                  "hash": 0
+                },
+                "roomType": "meetingRoom",
+                "dimensions": {
+                  "width": 1.0,
+                  "height": 1.0,
+                  "hash": 0
+                },
+                "oldName": "",
+                "altName": "",
+                "roomManagers": {
+                  "value": []
+                },
+                "access": "NONE",
+                "available": true,
+                "equipments": [],
+                "roomBookingType": "",
+                "comment": "",
+                "zone": "",
+                "telephoneNumber": "",
+                "type": "NONE"
+              }
+            }
+          ],
+          "extra": {
+            "id": 900013,
+            "name": "RDC",
+            "points": [
+              0.22,
+              0.04,
+              19.43,
+              0.18,
+              19.59,
+              9.98,
+              -0.02,
+              9.84
+            ],
+            "zoneMarkers": [],
+            "dimensions": {
+              "width": 1.0,
+              "height": 1.0,
+              "hash": 0
+            },
+            "location": {
+              "x": 0.0,
+              "y": 0.0,
+              "z": 0.0,
+              "hash": 0
+            }
+          }
+        }
+      ],
+      "extra": {
+        "id": 900012,
+        "name": "Bat BM13",
+        "location": {
+          "x": 0.0,
+          "y": 350.0,
+          "z": 0.0,
+          "hash": 0
+        }
+      }
     }
   ],
   "extra": {
     "name": "Site",
-    "version": "Version : 11-08-2026"
+    "version": "2026-08-15"
   }
 }

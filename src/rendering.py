@@ -4,7 +4,7 @@ import base64
 import uuid
 
 from model import Campus, Floor, Room
-from geometry import SCALE, building_footprint, world_to_px
+from geometry import PLAN_DISPLAY_WIDTH_PX, SCALE, building_footprint, world_to_px
 
 CANVAS_BG = "#211d55"
 CANVAS_STROKE = "#4338ca"
@@ -22,6 +22,24 @@ PALETTE = [
     "#f87171",
     "#2dd4bf",
 ]
+
+
+def text_scale_for_canvas(w_units: float) -> float:
+    """Facteur de compensation pour que le texte garde une taille constante à
+    l'écran, quelle que soit la taille réelle (en unités monde) de l'étage.
+
+    Le plan est dessiné à échelle réelle fixe (SCALE px par unité), donc le
+    canevas natif fait `w_units * SCALE` pixels de large. Le navigateur
+    redimensionne ensuite cette image pour tenir dans une largeur d'affichage
+    fixe (PLAN_DISPLAY_WIDTH_PX, via le style CSS "max-width"). Un étage deux
+    fois plus grand est donc affiché deux fois plus petit à l'écran : sans
+    compensation, un texte de taille fixe en unités SVG rétrécirait (ou
+    grossirait) avec la taille de l'étage. En multipliant les tailles de
+    police par ce facteur, le texte reste lisible et de taille visuelle
+    constante quel que soit le contour de l'étage.
+    """
+    canvas_w_px = max(w_units * SCALE, 1.0)
+    return canvas_w_px / PLAN_DISPLAY_WIDTH_PX
 
 
 def blank_background(w_units: float, h_units: float) -> str:
@@ -51,23 +69,27 @@ def grid_lines_svg(origin_x: float, origin_y: float, w_units: float, h_units: fl
     return "".join(parts)
 
 
-def room_svg(room: Room, origin_x: float, origin_y: float) -> str:
+def room_svg(room: Room, origin_x: float, origin_y: float, text_scale: float = 1.0) -> str:
     cx, cy = world_to_px(room.position[0], room.position[1], origin_x, origin_y)
     r = 1.0 * SCALE
+    name_font = 24 * text_scale
+    cap_font = 18 * text_scale
+    gap_above = 12 * text_scale
+    gap_below = 26 * text_scale
     return (
         f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="#93c5fd" fill-opacity="0.9" '
         f'stroke="#1d4ed8" stroke-width="2"><title>{room.name} — {room.capacity} pers.</title></circle>'
-        f'<text x="{cx}" y="{cy - r - 10}" font-size="20" font-weight="600" text-anchor="middle" fill="{TEXT_PRIMARY}">{room.name}</text>'
-        f'<text x="{cx}" y="{cy + r + 22}" font-size="16" text-anchor="middle" fill="{TEXT_SECONDARY}">{room.capacity} pers.</text>'
+        f'<text x="{cx}" y="{cy - r - gap_above:.2f}" font-size="{name_font:.2f}" font-weight="700" text-anchor="middle" fill="{TEXT_PRIMARY}">{room.name}</text>'
+        f'<text x="{cx}" y="{cy + r + gap_below:.2f}" font-size="{cap_font:.2f}" font-weight="600" text-anchor="middle" fill="{TEXT_SECONDARY}">{room.capacity} pers.</text>'
     )
 
 
-def floor_plan_content(floor: Floor, origin_x: float, origin_y: float) -> str:
+def floor_plan_content(floor: Floor, origin_x: float, origin_y: float, text_scale: float = 1.0) -> str:
     parts = []
     poly_px = " ".join(f"{px},{py}" for px, py in (world_to_px(x, y, origin_x, origin_y) for x, y in floor.polygon))
     parts.append(f'<polygon points="{poly_px}" fill="{FLOOR_FILL}" stroke="{FLOOR_STROKE}" stroke-width="2"/>')
     for room in floor.rooms:
-        parts.append(room_svg(room, origin_x, origin_y))
+        parts.append(room_svg(room, origin_x, origin_y, text_scale))
     return "".join(parts)
 
 
@@ -85,9 +107,9 @@ def drawing_preview_content(points: list[list[float]], origin_x: float, origin_y
     return "".join(parts)
 
 
-def floor_edit_content(floor: Floor, origin_x: float, origin_y: float) -> str:
+def floor_edit_content(floor: Floor, origin_x: float, origin_y: float, text_scale: float = 1.0) -> str:
     """Plan de l'étage avec poignées de sommets pour l'édition du contour."""
-    parts = [floor_plan_content(floor, origin_x, origin_y)]
+    parts = [floor_plan_content(floor, origin_x, origin_y, text_scale)]
     for i, (x, y) in enumerate(floor.polygon):
         px, py = world_to_px(x, y, origin_x, origin_y)
         parts.append(f'<circle cx="{px}" cy="{py}" r="7" fill="#f59e0b" stroke="#78350f" stroke-width="2"/>')

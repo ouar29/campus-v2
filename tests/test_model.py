@@ -1,4 +1,5 @@
 from datetime import date
+import asyncio
 
 from model import Campus, Building, Floor, Room
 from rendering import campus_map_parts
@@ -35,12 +36,12 @@ def test_campus_map_preview_renders_without_error():
 def test_read_uploaded_file_handles_nicegui_upload_event():
     event = FakeUploadEvent("campus.cps", b'{"name": "Test"}')
 
-    result = _read_uploaded_file(event)
+    result = asyncio.run(_read_uploaded_file(event))
 
     assert result is not None
     assert result[0] == "campus.cps"
     assert result[1] == b'{"name": "Test"}'
-
+    
 
 def test_export_campus_sets_version_to_today_date():
     campus = Campus(id="campus-1", name="Campus Test")

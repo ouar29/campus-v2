@@ -52,23 +52,41 @@ def _normalize_polygon(polygon: list[list[float]]) -> list[tuple[float, float]]:
     return [((x - cx) * scale, (y - cy) * scale) for x, y in polygon]
 
 
-def _iso(x: float, y: float, z: float) -> tuple[float, float]:
+def _rotate_xy(x: float, y: float, angle_deg: float) -> tuple[float, float]:
+    """Rotation 2D (x, y) autour de l'origine, d'un angle en degrés.
+
+    Appliquer cette rotation à toutes les coordonnées monde avant projection
+    isométrique équivaut à faire tourner la caméra autour de l'axe vertical
+    (z) : c'est ce qui permet les boutons « tourner à gauche/droite » de la
+    vue d'ensemble.
+    """
+    if not angle_deg:
+        return x, y
+    a = math.radians(angle_deg)
+    ca, sa = math.cos(a), math.sin(a)
+    return x * ca - y * sa, x * sa + y * ca
+
+
+def _iso(x: float, y: float, z: float, angle_deg: float = 0.0) -> tuple[float, float]:
+    x, y = _rotate_xy(x, y, angle_deg)
     sx = (x - y) * ISO_COS30
     sy = (x + y) * ISO_SIN30 - z
     return sx * OVERVIEW_SCALE, sy * OVERVIEW_SCALE
 
 
-def _unproject_ground(sx: float, sy: float) -> tuple[float, float]:
-    """Inverse de _iso(x, y, 0) : retrouve les coordonnées monde (x, y) au sol
-    à partir d'un point écran. Sert à déterminer quelle portion de la grille
-    au sol doit être dessinée pour couvrir toute la zone visible du canevas.
+def _unproject_ground(sx: float, sy: float, angle_deg: float = 0.0) -> tuple[float, float]:
+    """Inverse de _iso(x, y, 0, angle_deg) : retrouve les coordonnées monde (x, y)
+    au sol à partir d'un point écran. Sert à déterminer quelle portion de la
+    grille au sol doit être dessinée pour couvrir toute la zone visible du
+    canevas, quelle que soit la rotation courante.
     """
     a = sx / (ISO_COS30 * OVERVIEW_SCALE)
     b = sy / (ISO_SIN30 * OVERVIEW_SCALE)
-    return (a + b) / 2, (b - a) / 2
+    x, y = (a + b) / 2, (b - a) / 2
+    return _rotate_xy(x, y, -angle_deg)
 
 
-def _ground_grid_svg(screen_x_range: tuple[float, float], screen_y_range: tuple[float, float]) -> str:
+def _ground_grid_svg(screen_x_range: tuple[float, float], screen_y_range: tuple[float, float], angle_deg: float = 0.0) -> str:
     """Grille isométrique au niveau du sol (z=0), couvrant toute la zone
     écran donnée (dans le même repère pré-décalage que les bâtiments)."""
     corners = [
@@ -77,7 +95,7 @@ def _ground_grid_svg(screen_x_range: tuple[float, float], screen_y_range: tuple[
         (screen_x_range[0], screen_y_range[1]),
         (screen_x_range[1], screen_y_range[1]),
     ]
-    world_corners = [_unproject_ground(sx, sy) for sx, sy in corners]
+    world_corners = [_unproject_ground(sx, sy, angle_deg) for sx, sy in corners]
     xs = [c[0] for c in world_corners]
     ys = [c[1] for c in world_corners]
 
@@ -89,14 +107,14 @@ def _ground_grid_svg(screen_x_range: tuple[float, float], screen_y_range: tuple[
     lines = []
     x = x0
     while x <= x1:
-        p1, p2 = _iso(x, y0, 0), _iso(x, y1, 0)
+        p1, p2 = _iso(x, y0, 0, angle_deg), _iso(x, y1, 0, angle_deg)
         is_axis = abs(x) < 1e-6
         color, width, opacity = (GRID_AXIS_COLOR, 1.4, 0.7) if is_axis else (GRID_COLOR, 0.6, 0.35)
         lines.append(f'<line x1="{p1[0]}" y1="{p1[1]}" x2="{p2[0]}" y2="{p2[1]}" stroke="{color}" stroke-width="{width}" opacity="{opacity}"/>')
         x += GRID_SPACING
     y = y0
     while y <= y1:
-        p1, p2 = _iso(x0, y, 0), _iso(x1, y, 0)
+        p1, p2 = _iso(x0, y, 0, angle_deg), _iso(x1, y, 0, angle_deg)
         is_axis = abs(y) < 1e-6
         color, width, opacity = (GRID_AXIS_COLOR, 1.4, 0.7) if is_axis else (GRID_COLOR, 0.6, 0.35)
         lines.append(f'<line x1="{p1[0]}" y1="{p1[1]}" x2="{p2[0]}" y2="{p2[1]}" stroke="{color}" stroke-width="{width}" opacity="{opacity}"/>')
@@ -125,11 +143,16 @@ def _compress_position(centroid_x: float, centroid_y: float, position: list[floa
     return cx, cy
 
 
-def _build_overview(campus: Campus) -> tuple[str, float, float]:
+def _build_overview(campus: Campus, angle_deg: float = 0.0) -> tuple[str, float, float]:
     """Construit le SVG complet. Retourne (svg, focus_width, focus_height) où
     focus_width/height est la taille du contenu utile (bâtiments + marge),
     à distinguer de la taille totale du canevas (qui inclut la grille étendue) —
     c'est cette taille "utile" qui doit servir à cadrer la vue initiale.
+
+    `angle_deg` fait tourner la scène autour de l'axe vertical (pas de 45°
+    fournis par les boutons de rotation) ; le cadrage (bounding box) est
+    recalculé à partir des points déjà tournés, donc la vue reste centrée
+    quelle que soit la rotation.
     """
     elements: list[str] = []
     all_x: list[float] = []
@@ -156,8 +179,8 @@ def _build_overview(campus: Campus) -> tuple[str, float, float]:
             z_bottom = floor.level * FLOOR_HEIGHT
             z_top = z_bottom + SLAB_THICKNESS
 
-            top_proj = [_iso(x, y, z_top) for x, y in world_pts]
-            bottom_proj = [_iso(x, y, z_bottom) for x, y in world_pts]
+            top_proj = [_iso(x, y, z_top, angle_deg) for x, y in world_pts]
+            bottom_proj = [_iso(x, y, z_bottom, angle_deg) for x, y in world_pts]
             for px, py in top_proj + bottom_proj:
                 record(px, py)
 
@@ -185,13 +208,14 @@ def _build_overview(campus: Campus) -> tuple[str, float, float]:
             cx = sum(p[0] for p in top_proj) / n
             cy = sum(p[1] for p in top_proj) / n
             elements.append(
-                f'<text x="{cx}" y="{cy}" font-size="15" text-anchor="middle" '
-                f'dominant-baseline="middle" fill="#eef2ff" font-weight="600">{floor.name}</text>'
+                f'<text x="{cx}" y="{cy}" font-size="24" text-anchor="middle" '
+                f'dominant-baseline="middle" fill="#eef2ff" font-weight="700" paint-order="stroke" '
+                f'stroke="#1e1b4b" stroke-width="4" stroke-linejoin="round">{floor.name}</text>'
             )
 
         # Étiquette bâtiment, bien visible sous la base du rez-de-chaussée
         # (halo sombre autour du texte pour rester lisible quelle que soit la couleur derrière)
-        base_x, base_y = _iso(bx, by, 0)
+        base_x, base_y = _iso(bx, by, 0, angle_deg)
         record(base_x, base_y + 42)
         elements.append(
             f'<text x="{base_x}" y="{base_y + 34}" font-size="24" text-anchor="middle" '
@@ -217,7 +241,7 @@ def _build_overview(campus: Campus) -> tuple[str, float, float]:
 
     # Grille au sol (niveau 0), en repère pré-décalage (même repère que les
     # bâtiments avant application du translate) pour couvrir tout le canevas.
-    grid = _ground_grid_svg((-offset_x, width - offset_x), (-offset_y, height - offset_y))
+    grid = _ground_grid_svg((-offset_x, width - offset_x), (-offset_y, height - offset_y), angle_deg)
 
     body = grid + "".join(elements)
     # Le viewBox initial cible directement la zone utile (bâtiments + petite marge),
@@ -235,12 +259,12 @@ def _build_overview(campus: Campus) -> tuple[str, float, float]:
     return svg, focus_width, focus_height
 
 
-def build_overview_svg(campus: Campus) -> str:
-    svg, _, _ = _build_overview(campus)
+def build_overview_svg(campus: Campus, angle_deg: float = 0.0) -> str:
+    svg, _, _ = _build_overview(campus, angle_deg)
     return svg
 
 
-def build_overview_parts(campus: Campus) -> tuple[str, str]:
+def build_overview_parts(campus: Campus, angle_deg: float = 0.0) -> tuple[str, str]:
     """Retourne (html, js) pour la vue d'ensemble isométrique avec navigation.
 
     Le cadrage initial (zoom sur les bâtiments) est déjà correct dans le HTML
@@ -254,8 +278,14 @@ def build_overview_parts(campus: Campus) -> tuple[str, str]:
     APRÈS que le html ait été inséré (ui.html) : un <script> inséré via
     innerHTML n'est PAS exécuté par le navigateur, donc on ne peut pas se
     contenter de l'embarquer dans le HTML.
+
+    `angle_deg` (pas de 45° côté appelant) fait tourner toute la scène autour
+    de l'axe vertical avant projection — la rotation change la géométrie
+    projetée elle-même, donc elle est recalculée côté serveur à chaque appel
+    plutôt qu'en CSS/JS côté client (contrairement au zoom/pan ci-dessous,
+    qui ne fait que déplacer le viewBox sur un SVG déjà projeté).
     """
-    svg_content, focus_w, focus_h = _build_overview(campus)
+    svg_content, focus_w, focus_h = _build_overview(campus, angle_deg)
     uid = uuid.uuid4().hex
 
     html = f"""

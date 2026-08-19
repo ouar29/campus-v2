@@ -76,10 +76,6 @@ def _load_json_lenient(path: str) -> dict:
         except json.JSONDecodeError:
             raise first_error
 
-        print(
-            f"Attention : {path} contenait des erreurs de syntaxe JSON non strictes de type export "
-            "(virgules finales / clôtures dupliquées). Vérifie l'outil d'export source si ça se répèle."
-        )
         return data
 
 

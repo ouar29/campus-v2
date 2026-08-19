@@ -51,13 +51,14 @@ def test_lenient_loader_handles_malformed_sample_cps():
     assert skipped >= 0
 
 
-def test_import_replaces_model_and_refreshes_selection(monkeypatch):
+def test_import_replaces_model_and_refreshes_selection(monkeypatch, tmp_path):
     import nicegui.ui as ui
 
     monkeypatch.setattr(ui, "notify", lambda *args, **kwargs: None)
 
     app = CampusApp.__new__(CampusApp)
     app.campus = type("CampusState", (), {"name": "Ancien", "buildings": []})()
+    app.data_path = tmp_path / "data.json"
     app.controller = None
     app.campus_service = None
     app.floor_service = None

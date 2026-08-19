@@ -6,15 +6,18 @@ l’application. Le point d’entrée reste volontairement minimal dans main.py.
 from __future__ import annotations
 
 import base64
+import json
+import shutil
 import uuid
+import sys
 from pathlib import Path
 
-from nicegui import events, ui
+import platformdirs
+from nicegui import events, native, ui
 
 from controller import CampusController
 from export_cps import export_campus
 from import_cps import convert as convert_cps
-
 
 async def _read_uploaded_file(event) -> tuple[str, bytes] | None:
     file = getattr(event, "file", None)
@@ -47,6 +50,7 @@ from rendering import (
     drawing_preview_content,
     floor_edit_content,
     floor_plan_content,
+    text_scale_for_canvas,
 )
 from ui.dialogs import (
     open_new_building_dialog as open_new_building_dialog_ui,
@@ -56,8 +60,6 @@ from ui.dialogs import (
 from ui.layout import build_header, build_sidebar, build_main_area
 from ui.theme import apply_theme
 from ui.views import open_campus_map_dialog, open_overview_dialog, open_room_table_dialog
-
-DATA_PATH = "src/data.json"
 
 THEME_PRIMARY = "#6366f1"
 THEME_SECONDARY = "#4f46e5"
@@ -86,18 +88,72 @@ CAMPUS_PADDING = 15.0
 VERTEX_DRAG_THRESHOLD = 1.2
 EDGE_INSERT_THRESHOLD = 0.9
 
+def get_resource_path(relative_path: str) -> Path:
+    """Obtient le chemin absolu vers une ressource, fonctionne en dev et avec PyInstaller."""
+    if hasattr(sys, "_MEIPASS"):
+        # Mode PyInstaller (dossier temporaire/interne)
+        base_path = Path(sys._MEIPASS)
+    else:
+        # Mode développement classique (racine du projet)
+        base_path = Path(__file__).resolve().parent.parent
+
+    return base_path / relative_path
+
+
+APP_NAME = "AdministrationCampus"
+APP_AUTHOR = "CampusAdmin"  # à adapter au nom de ton organisation si besoin
+
+DEFAULT_CAMPUS_TEMPLATE = {"id": "campus-default", "name": "Campus", "buildings": [], "extra": {}}
+
+
+def get_data_path() -> Path:
+    """Retourne le chemin du data.json à utiliser pour la lecture/écriture.
+
+    En dev (lancé depuis les sources), on reste sur le fichier du dépôt —
+    pratique pour éditer/versionner les données de test directement.
+
+    En build PyInstaller, il ne faut JAMAIS écrire dans le bundle : en mode
+    --onefile, `sys._MEIPASS` pointe vers un dossier temporaire supprimé à
+    la fermeture de l'application, donc toute sauvegarde y serait perdue au
+    prochain lancement (et en --onedir, écrire dans le dossier d'install
+    pose des soucis de droits/mises à jour). On utilise donc un dossier de
+    données utilisateur stable (AppData sous Windows, Application Support
+    sous macOS, ~/.local/share sous Linux), et on y copie le data.json
+    embarqué au tout premier lancement s'il n'existe pas encore.
+    """
+    if not getattr(sys, "frozen", False):
+        return get_resource_path("src/data.json")
+
+    user_dir = Path(platformdirs.user_data_dir(APP_NAME, APP_AUTHOR))
+    user_dir.mkdir(parents=True, exist_ok=True)
+    user_data_path = user_dir / "data.json"
+
+    if not user_data_path.exists():
+        bundled_default = get_resource_path("src/data.json")
+        if bundled_default.exists():
+            shutil.copy(bundled_default, user_data_path)
+        else:
+            # Pas de data.json embarqué (ne devrait pas arriver si le build
+            # inclut bien --add-data pour src/data.json) : on démarre à vide
+            # plutôt que de planter.
+            user_data_path.write_text(
+                json.dumps(DEFAULT_CAMPUS_TEMPLATE, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
+    return user_data_path
+
 
 class CampusApp:
     def __init__(self) -> None:
         self.dark = apply_theme()
-        self.campus = Campus.load(DATA_PATH)
+        self.data_path = get_data_path()
+        self.campus = Campus.load(self.data_path)
         self.sessions = [{
             "key": "session-default",
             "label": self.campus.name or "Campus",
             "campus": self.campus,
         }]
         self.current_session_key = self.sessions[0]["key"]
-        self.controller = CampusController(self.campus, DATA_PATH)
+        self.controller = CampusController(self.campus, self.data_path)
         self.campus_service = self.controller.campus_service
         self.floor_service = self.controller.floor_service
         self.room_service = self.controller.room_service
@@ -120,7 +176,7 @@ class CampusApp:
     def _replace_active_campus(self, campus: Campus, label: str | None = None) -> None:
         self._ensure_session_state()
         self.campus = campus
-        self.controller = CampusController(self.campus, DATA_PATH)
+        self.controller = CampusController(self.campus, self.data_path)
         self.campus_service = self.controller.campus_service
         self.floor_service = self.controller.floor_service
         self.room_service = self.controller.room_service
@@ -250,6 +306,7 @@ class CampusApp:
 
             if mode == "editing_geometry":
                 origin_x, origin_y, w_units, h_units = transform_for_floor(floor)
+                text_scale = text_scale_for_canvas(w_units)
                 with ui.row().classes("items-center gap-2 mb-2"):
                     ui.label(
                         "Édition du contour — glisse un sommet (orange), double-clique dessus pour le "
@@ -259,7 +316,7 @@ class CampusApp:
                 bg = blank_background(w_units, h_units)
                 img = ui.interactive_image(
                     bg,
-                    content=floor_edit_content(floor, origin_x, origin_y),
+                    content=floor_edit_content(floor, origin_x, origin_y, text_scale),
                     on_mouse=self.on_mouse,
                     events=["mousedown", "mousemove", "mouseup", "dblclick"],
                 ).classes("w-full").style("max-width: 900px")
@@ -273,10 +330,11 @@ class CampusApp:
                     ui.button("Éditer le contour de cet étage", icon="edit", on_click=self.start_geometry_edit).props("size=sm outline")
 
             origin_x, origin_y, w_units, h_units = transform_for_floor(floor)
+            text_scale = text_scale_for_canvas(w_units)
             bg = blank_background(w_units, h_units)
             img = ui.interactive_image(
                 bg,
-                content=floor_plan_content(floor, origin_x, origin_y),
+                content=floor_plan_content(floor, origin_x, origin_y, text_scale),
                 on_mouse=self.on_mouse,
                 events=["mousedown", "mousemove", "mouseup"],
             ).classes("w-full").style("max-width: 900px")
@@ -289,12 +347,13 @@ class CampusApp:
             floor = self.state["floor"]
             if floor is None:
                 return
-            origin_x, origin_y, _, _ = transform_for_floor(floor)
+            origin_x, origin_y, w_units, _ = transform_for_floor(floor)
+            text_scale = text_scale_for_canvas(w_units)
             wx, wy = px_to_world(e.image_x, e.image_y, origin_x, origin_y)
 
             def redraw_edit() -> None:
                 if self.state["plan_image"] is not None:
-                    self.state["plan_image"].content = floor_edit_content(floor, origin_x, origin_y)
+                    self.state["plan_image"].content = floor_edit_content(floor, origin_x, origin_y, text_scale)
 
             if e.type == "dblclick":
                 idx, dist = nearest_vertex(floor.polygon, wx, wy)
@@ -353,7 +412,8 @@ class CampusApp:
         floor = self.state["floor"]
         if floor is None:
             return
-        origin_x, origin_y, _, _ = transform_for_floor(floor)
+        origin_x, origin_y, w_units, _ = transform_for_floor(floor)
+        text_scale = text_scale_for_canvas(w_units)
         wx, wy = px_to_world(e.image_x, e.image_y, origin_x, origin_y)
 
         if mode == "placing_room":
@@ -396,7 +456,7 @@ class CampusApp:
                 return
             room.position = [round(wx, 2), round(wy, 2)]
             if self.state["plan_image"] is not None:
-                self.state["plan_image"].content = floor_plan_content(floor, origin_x, origin_y)
+                self.state["plan_image"].content = floor_plan_content(floor, origin_x, origin_y, text_scale)
 
         elif e.type == "mouseup":
             if self.state["dragging_room_id"] is not None:
@@ -592,14 +652,36 @@ class CampusApp:
         dialog.close()
 
     def run(self) -> None:
-        ui.run(title="Administration Campus", reload=False)
+        """Conservée pour compatibilité (ex. lancement direct d'une instance
+        existante) — l'entrée normale de l'app passe par main(), qui construit
+        l'UI dans une route @ui.page explicite (voir plus bas)."""
+        ui.run(
+            title="Administration Campus",
+            favicon="🚀",
+            port=native.find_open_port(),
+            reload=False,
+            show=True)
 
 
 def main() -> None:
-    app = CampusApp()
-    app.build()
-    app.run()
+    # L'UI doit être construite dans une route explicite (@ui.page) plutôt
+    # qu'au niveau du script : sans ça, NiceGUI 3.0 reconstruit la page en
+    # ré-exécutant tout le script principal via runpy à chaque requête
+    # (mode "script"/auto-index). Ça fonctionne en dev (sys.argv[0] est un
+    # vrai fichier .py), mais plante dans l'exécutable PyInstaller — où
+    # sys.argv[0] pointe vers le binaire compilé, pas du code source lisible
+    # ("SyntaxError: source code string cannot contain null bytes").
+    # Chaque nouvelle connexion crée sa propre instance de CampusApp, qui
+    # recharge l'état depuis data.json — exactement le comportement qu'on
+    # avait implicitement avant (le script entier était ré-exécuté à chaque
+    # requête), mais sans dépendre de ce mécanisme fragile.
+    @ui.page("/")
+    def index() -> None:
+        CampusApp().build()
 
-
-if __name__ in {"__main__", "__mp_main__"}:
-    main()
+    ui.run(
+        title="Administration Campus",
+        favicon="🚀",
+        port=native.find_open_port(),
+        reload=False,
+        show=True)

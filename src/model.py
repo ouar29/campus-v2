@@ -87,7 +87,9 @@ class Campus:
 
     @staticmethod
     def load(path: str | Path) -> "Campus":
-        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        p = Path(path)
+        with open(p, "r", encoding="utf-8") as f:
+            data = json.load(f)
         return Campus._from_dict(data)
 
     def save(self, path: str | Path) -> None:

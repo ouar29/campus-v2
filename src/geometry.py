@@ -4,6 +4,7 @@ from model import Building, Floor
 
 PADDING = 2.0
 SCALE = 20
+PLAN_DISPLAY_WIDTH_PX = 900  # doit correspondre au "max-width" CSS appliqué au plan (campus_app.py)
 DEFAULT_CANVAS_W = 50.0
 DEFAULT_CANVAS_H = 30.0
 ROOM_RADIUS_UNITS = 1.0
