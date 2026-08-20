@@ -1,0 +1,24 @@
+[project]
+name = "campus-admin"
+version = "0.1.0"
+description = "Application d'administration du campus (bâtiments, étages, salles)"
+authors = [
+    { name = "Ton Nom", email = "toi@example.com" }
+]
+requires-python = ">=3.11,<3.16"
+dependencies = [
+    "nicegui>=3.0,<4.0",
+    # Dossier de données utilisateur multiplateforme (AppData / Application
+    # Support / .local/share) — utilisé par get_data_path() dans campus_app.py
+    # pour ne jamais écrire dans le bundle PyInstaller.
+    "platformdirs>=4.3,<5.0",
+]
+
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.10",
+    "pytest>=8.0",
+]
+
+[tool.uv]
+package = false
