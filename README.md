@@ -1,0 +1,1 @@
+- [ ] Nettoyer le code redondant après modularisation

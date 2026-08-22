@@ -23,7 +23,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from model import Campus, Building, Floor, Room
+from model import Campus, Building, Floor, Gestionnaire, Room
 
 _id_counter = itertools.count(900_000)  # ids synthétiques pour les entités créées dans l'appli
 
@@ -40,7 +40,7 @@ def _next_synthetic_id() -> int:
     return next(_id_counter)
 
 
-def export_room(room: Room) -> dict:
+def export_room(room: Room, gestionnaire_by_id: dict[str, Gestionnaire]) -> dict:
     out = dict(room.extra)
     out["id"] = room.extra.get("id", _next_synthetic_id())
     out["name"] = room.name
@@ -52,7 +52,21 @@ def export_room(room: Room) -> dict:
     out.setdefault("dimensions", _default_dimensions())
     out.setdefault("oldName", "")
     out.setdefault("altName", "")
-    out.setdefault("roomManagers", {"value": []})
+    # roomManagers n'est plus une liste libre par salle : c'est désormais
+    # reconstruit à partir de l'annuaire partagé (campus.gestionnaires) via
+    # room.gestionnaire_ids, seule source de vérité côté modèle. On écrase
+    # volontairement toute valeur restée dans `extra` plutôt que de s'y fier.
+    out["roomManagers"] = {
+        "value": [
+            {
+                "name": gestionnaire.nom,
+                "telephoneNumber": gestionnaire.telephone,
+                "email": gestionnaire.email,
+            }
+            for gid in room.gestionnaire_ids
+            if (gestionnaire := gestionnaire_by_id.get(gid)) is not None
+        ]
+    }
     out.setdefault("access", "NONE")
     out.setdefault("available", True)
     out.setdefault("equipments", [])
@@ -64,7 +78,7 @@ def export_room(room: Room) -> dict:
     return out
 
 
-def export_floor(floor: Floor) -> dict:
+def export_floor(floor: Floor, gestionnaire_by_id: dict[str, Gestionnaire]) -> dict:
     out = {k: v for k, v in floor.extra.items() if k != "rooms"}
     out["id"] = floor.extra.get("id", _next_synthetic_id())
     out["name"] = floor.name
@@ -72,29 +86,30 @@ def export_floor(floor: Floor) -> dict:
     for x, y in floor.polygon:
         flat_points.extend([x, y])
     out["points"] = flat_points
-    out["rooms"] = [export_room(r) for r in floor.rooms]
+    out["rooms"] = [export_room(r, gestionnaire_by_id) for r in floor.rooms]
     out.setdefault("zoneMarkers", [])
     out.setdefault("dimensions", _default_dimensions())
     out.setdefault("location", _default_location())
     return out
 
 
-def export_building(building: Building) -> dict:
+def export_building(building: Building, gestionnaire_by_id: dict[str, Gestionnaire]) -> dict:
     out = {k: v for k, v in building.extra.items() if k != "floors"}
     out["id"] = building.extra.get("id", _next_synthetic_id())
     out["name"] = building.name
     base_location = dict(building.extra.get("location", _default_location()))
     base_location["x"], base_location["y"] = building.position[0], building.position[1]
     out["location"] = base_location
-    out["floors"] = [export_floor(f) for f in building.floors]
+    out["floors"] = [export_floor(f, gestionnaire_by_id) for f in building.floors]
     return out
 
 
 def export_campus(campus: Campus) -> dict:
+    gestionnaire_by_id = {g.id: g for g in campus.gestionnaires}
     out = {k: v for k, v in campus.extra.items() if k != "buildings"}
     out["name"] = campus.name
     out["version"] = date.today().isoformat()
-    out["buildings"] = [export_building(b) for b in campus.buildings]
+    out["buildings"] = [export_building(b, gestionnaire_by_id) for b in campus.buildings]
     return out
 
 

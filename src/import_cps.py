@@ -37,7 +37,7 @@ import re
 import sys
 from pathlib import Path
 
-from model import Campus, Building, Floor, Room
+from model import Campus, Building, Floor, Room, migrate_room_managers
 
 
 def _load_json_lenient(path: str) -> dict:
@@ -134,6 +134,8 @@ def convert(cps_path: str) -> tuple[Campus, int]:
             building.floors.append(floor)
 
         campus.buildings.append(building)
+
+    migrate_room_managers(campus)
 
     return campus, skipped_rooms
 

@@ -113,18 +113,12 @@
                 136.75,
                 42.94
               ],
+              "gestionnaire_ids": [
+                "gest-796b8e7a"
+              ],
               "extra": {
                 "oldName": "",
                 "altName": "",
-                "roomManagers": {
-                  "value": [
-                    {
-                      "name": "CocoYa",
-                      "telephoneNumber": "",
-                      "email": ""
-                    }
-                  ]
-                },
                 "access": "RESTRICTED",
                 "available": true,
                 "capacity": 10,
@@ -355,16 +349,12 @@
                 47.0,
                 23.5
               ],
+              "gestionnaire_ids": [
+                "gest-57366430"
+              ],
               "extra": {
                 "oldName": "",
                 "altName": "ROSCOFF 10",
-                "roomManagers": {
-                  "value": [
-                    {
-                      "name": "Isa"
-                    }
-                  ]
-                },
                 "access": "RESTRICTED",
                 "available": true,
                 "capacity": 15,
@@ -470,26 +460,16 @@
               "name": "CAP FERRAT",
               "capacity": 8,
               "position": [
-                21.0,
-                47.0
+                20.82,
+                46.81
+              ],
+              "gestionnaire_ids": [
+                "gest-57366430",
+                "gest-7b9d1d16"
               ],
               "extra": {
                 "oldName": "",
                 "altName": "FERRAT",
-                "roomManagers": {
-                  "value": [
-                    {
-                      "name": "Isa",
-                      "telephoneNumber": "",
-                      "email": ""
-                    },
-                    {
-                      "name": "Coco",
-                      "telephoneNumber": "02 98 25 63 56",
-                      "email": ""
-                    }
-                  ]
-                },
                 "access": "CD",
                 "available": true,
                 "capacity": 8,
@@ -606,6 +586,7 @@
                 17.26,
                 11.12
               ],
+              "gestionnaire_ids": [],
               "extra": {
                 "id": 900011,
                 "name": "xadad",
@@ -624,9 +605,6 @@
                 },
                 "oldName": "",
                 "altName": "",
-                "roomManagers": {
-                  "value": []
-                },
                 "access": "NONE",
                 "available": true,
                 "equipments": [],
@@ -718,6 +696,7 @@
                 11.27,
                 4.28
               ],
+              "gestionnaire_ids": [],
               "extra": {
                 "id": 900014,
                 "name": "xzczczc",
@@ -736,9 +715,6 @@
                 },
                 "oldName": "",
                 "altName": "",
-                "roomManagers": {
-                  "value": []
-                },
                 "access": "NONE",
                 "available": true,
                 "equipments": [],
@@ -790,8 +766,28 @@
       }
     }
   ],
+  "gestionnaires": [
+    {
+      "id": "gest-796b8e7a",
+      "nom": "CocoYa",
+      "email": "coco@coco.com",
+      "telephone": "06 77 88 99 11 22"
+    },
+    {
+      "id": "gest-57366430",
+      "nom": "Isa",
+      "email": "",
+      "telephone": ""
+    },
+    {
+      "id": "gest-7b9d1d16",
+      "nom": "Coco",
+      "email": "",
+      "telephone": "02 98 25 63 56"
+    }
+  ],
   "extra": {
     "name": "Site",
-    "version": "2026-08-15"
+    "version": "2026-08-22"
   }
 }

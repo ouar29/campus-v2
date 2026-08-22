@@ -3,7 +3,7 @@ from __future__ import annotations
 from nicegui import ui
 
 from iso_view import build_overview_parts
-from model import Building, Floor, Room
+from model import Building, Floor, Gestionnaire, Room
 from rendering import campus_map_parts
 from schema_validation import validate_campus_bytes
 from campus_app import _read_uploaded_file
@@ -135,8 +135,12 @@ def open_overview_dialog(app) -> None:
     redraw_overview()
 
 
-def open_room_table_dialog(app) -> None:
-    search = {"query": ""}
+def open_room_table_dialog(app, focus_room_id: str | None = None) -> None:
+    focus_room = app.controller.get_room(focus_room_id) if focus_room_id else None
+    search = {
+        "query": focus_room.name if focus_room else "",
+        "focus_id": focus_room.id if focus_room else None,
+    }
 
     def render_room_row(building: Building, floor: Floor, room: Room) -> None:
         def on_name_change(e) -> None:
@@ -194,44 +198,20 @@ def open_room_table_dialog(app) -> None:
                 "Équipements (séparés par des virgules)", value=equipments_text
             ).classes("w-full")
 
-            ui.label("Responsables de la salle (roomManagers)").classes("text-sm font-semibold text-gray-500 dark:text-gray-300 mt-3")
-            managers_container = ui.column().classes("w-full gap-1")
-            managers_state: list[dict] = [dict(m) for m in extra.get("roomManagers", {}).get("value", [])]
-
-            def render_managers() -> None:
-                managers_container.clear()
-                with managers_container:
-                    if not managers_state:
-                        ui.label("Aucun responsable renseigné.").classes("text-xs text-gray-400 dark:text-gray-500")
-                    for i in range(len(managers_state)):
-                        with ui.row().classes("items-center gap-2 w-full"):
-                            ui.input(
-                                "Nom",
-                                value=managers_state[i].get("name", ""),
-                                on_change=lambda e, i=i: managers_state[i].update(name=e.value),
-                            ).classes("flex-1").props("dense")
-                            ui.input(
-                                "Téléphone",
-                                value=managers_state[i].get("telephoneNumber", ""),
-                                on_change=lambda e, i=i: managers_state[i].update(telephoneNumber=e.value),
-                            ).classes("flex-1").props("dense")
-                            ui.input(
-                                "Email",
-                                value=managers_state[i].get("email", ""),
-                                on_change=lambda e, i=i: managers_state[i].update(email=e.value),
-                            ).classes("flex-1").props("dense")
-                            ui.button(icon="delete", on_click=lambda i=i: remove_manager(i)).props("flat round size=sm")
-
-            def remove_manager(i: int) -> None:
-                managers_state.pop(i)
-                render_managers()
-
-            def add_manager() -> None:
-                managers_state.append({"name": "", "telephoneNumber": "", "email": ""})
-                render_managers()
-
-            render_managers()
-            ui.button("+ Responsable", on_click=add_manager).props("size=sm outline").classes("mt-1")
+            ui.label("Gestionnaires de la salle").classes(
+                "text-sm font-semibold text-gray-500 dark:text-gray-300 mt-3"
+            )
+            gestionnaires_options = {g.id: g.nom for g in app.controller.get_gestionnaires()}
+            if not gestionnaires_options:
+                ui.label(
+                    "Aucun gestionnaire créé pour l'instant — utilise « Gestionnaires » dans l'en-tête."
+                ).classes("text-xs text-gray-400 dark:text-gray-500")
+            gestionnaires_select = ui.select(
+                gestionnaires_options,
+                value=list(room.gestionnaire_ids),
+                label="Gestionnaires",
+                multiple=True,
+            ).classes("w-full").props("use-chips dense")
 
             def confirm() -> None:
                 extra["oldName"] = old_name_input.value or ""
@@ -245,12 +225,7 @@ def open_room_table_dialog(app) -> None:
                 extra["available"] = bool(available_switch.value)
                 extra["comment"] = comment_input.value or ""
                 extra["equipments"] = [s.strip() for s in (equipments_input.value or "").split(",") if s.strip()]
-                extra["roomManagers"] = {
-                    "value": [
-                        m for m in managers_state
-                        if (m.get("name") or m.get("telephoneNumber") or m.get("email"))
-                    ]
-                }
+                app.controller.assign_gestionnaires_to_room(room.id, gestionnaires_select.value or [])
                 app.save()
                 ui.notify("Détails enregistrés")
                 dialog.close()
@@ -263,11 +238,15 @@ def open_room_table_dialog(app) -> None:
     @ui.refreshable
     def rows_view() -> None:
         query = search["query"].strip().lower()
+        focus_id = search["focus_id"]
         shown = False
         for building in app.campus.buildings:
             for floor in building.floors:
                 for room in floor.rooms:
-                    if query and query not in room.name.lower() and query not in building.name.lower() and query not in floor.name.lower():
+                    if focus_id:
+                        if room.id != focus_id:
+                            continue
+                    elif query and query not in room.name.lower() and query not in building.name.lower() and query not in floor.name.lower():
                         continue
                     shown = True
                     render_room_row(building, floor, room)
@@ -276,6 +255,7 @@ def open_room_table_dialog(app) -> None:
 
     def on_search_change(e) -> None:
         search["query"] = e.value or ""
+        search["focus_id"] = None  # dès que l'utilisateur retouche le champ, on repasse en recherche libre
         rows_view.refresh()
 
     with ui.dialog().props("maximized") as dialog, ui.card().classes("w-full h-full"):
@@ -289,6 +269,7 @@ def open_room_table_dialog(app) -> None:
         else:
             ui.input(
                 label="Rechercher une salle (nom, bâtiment, étage)...",
+                value=search["query"],
                 on_change=on_search_change,
             ).classes("w-full mb-2").props("clearable dense outlined")
 
@@ -343,5 +324,123 @@ def open_validation_dialog(_event=None) -> None:
 
         with ui.row().classes("w-full justify-end"):
             ui.button("Fermer", on_click=dialog.close)
+
+    dialog.open()
+
+
+def open_gestionnaires_dialog(app) -> None:
+    search = {"query": ""}
+
+    def open_edit_dialog(gestionnaire_id: str | None) -> None:
+        gestionnaire = app.controller.get_gestionnaire(gestionnaire_id) if gestionnaire_id else None
+
+        with ui.dialog() as edit_dialog, ui.card().classes("w-96"):
+            ui.label("Modifier le gestionnaire" if gestionnaire else "Nouveau gestionnaire").classes(
+                "text-lg font-semibold mb-2"
+            )
+            nom_input = ui.input("Nom", value=gestionnaire.nom if gestionnaire else "").classes("w-full")
+            email_input = ui.input("Email", value=gestionnaire.email if gestionnaire else "").classes("w-full")
+            tel_input = ui.input("Téléphone", value=gestionnaire.telephone if gestionnaire else "").classes("w-full")
+
+            def save() -> None:
+                nom = (nom_input.value or "").strip()
+                if not nom:
+                    ui.notify("Le nom est requis", color="warning")
+                    return
+                if gestionnaire:
+                    app.controller.update_gestionnaire(
+                        gestionnaire.id,
+                        nom=nom,
+                        email=(email_input.value or "").strip(),
+                        telephone=(tel_input.value or "").strip(),
+                    )
+                else:
+                    app.controller.add_gestionnaire(
+                        nom=nom,
+                        email=(email_input.value or "").strip(),
+                        telephone=(tel_input.value or "").strip(),
+                    )
+                edit_dialog.close()
+                rows_view.refresh()
+
+            with ui.row().classes("w-full justify-end mt-2"):
+                ui.button("Annuler", on_click=edit_dialog.close).props("flat")
+                ui.button("Enregistrer", on_click=save)
+
+        edit_dialog.open()
+
+    def confirm_delete(gestionnaire: Gestionnaire) -> None:
+        rooms_using = app.controller.get_rooms_for_gestionnaire(gestionnaire.id)
+        with ui.dialog() as confirm_dlg, ui.card():
+            message = f"Supprimer « {gestionnaire.nom} » ?"
+            if rooms_using:
+                message += f" {len(rooms_using)} salle(s) perdront ce gestionnaire."
+            ui.label(message)
+
+            def do_delete() -> None:
+                app.controller.delete_gestionnaire(gestionnaire.id)
+                confirm_dlg.close()
+                rows_view.refresh()
+
+            with ui.row().classes("w-full justify-end mt-2"):
+                ui.button("Annuler", on_click=confirm_dlg.close).props("flat")
+                ui.button("Supprimer", color="negative", on_click=do_delete)
+        confirm_dlg.open()
+
+    def render_gestionnaire_row(gestionnaire: Gestionnaire) -> None:
+        nb_salles = len(app.controller.get_rooms_for_gestionnaire(gestionnaire.id))
+        with ui.row().classes("w-full items-center gap-3 py-1 border-b border-gray-100 dark:border-gray-700"):
+            ui.label(gestionnaire.nom).classes("w-48 font-medium")
+            ui.label(gestionnaire.email or "—").classes("flex-1 text-sm text-gray-600 dark:text-gray-300")
+            ui.label(gestionnaire.telephone or "—").classes("w-40 text-sm text-gray-600 dark:text-gray-300")
+            ui.label(f"{nb_salles} salle(s)").classes("w-28 text-sm text-gray-500 dark:text-gray-300")
+            ui.button(icon="edit", on_click=lambda g=gestionnaire: open_edit_dialog(g.id)).props("flat round size=sm")
+            ui.button(
+                icon="delete", on_click=lambda g=gestionnaire: confirm_delete(g)
+            ).props("flat round size=sm color=negative")
+
+    @ui.refreshable
+    def rows_view() -> None:
+        query = search["query"].strip().lower()
+        shown = False
+        for gestionnaire in app.controller.get_gestionnaires():
+            if query and query not in gestionnaire.nom.lower() and query not in gestionnaire.email.lower():
+                continue
+            shown = True
+            render_gestionnaire_row(gestionnaire)
+        if not shown:
+            ui.label("Aucun gestionnaire ne correspond à la recherche.").classes(
+                "text-gray-500 dark:text-gray-300 py-4"
+            )
+
+    def on_search_change(e) -> None:
+        search["query"] = e.value or ""
+        rows_view.refresh()
+
+    with ui.dialog().props("maximized") as dialog, ui.card().classes("w-full h-full"):
+        with ui.row().classes("items-center justify-between w-full mb-2"):
+            ui.label("Gestionnaires de salles").classes("text-lg font-semibold")
+            with ui.row().classes("items-center gap-2"):
+                ui.button("+ Gestionnaire", icon="add", on_click=lambda: open_edit_dialog(None)).props(
+                    "size=sm color=primary"
+                )
+                ui.button(icon="close", on_click=dialog.close).props("flat round")
+
+        ui.input(
+            label="Rechercher un gestionnaire (nom, email)...",
+            on_change=on_search_change,
+        ).classes("w-full mb-2").props("clearable dense outlined")
+
+        with ui.scroll_area().classes("w-full h-full"):
+            with ui.row().classes(
+                "w-full items-center gap-3 pb-2 border-b-2 border-gray-300 dark:border-gray-600 "
+                "text-sm font-semibold text-gray-500 dark:text-gray-300"
+            ):
+                ui.label("Nom").classes("w-48")
+                ui.label("Email").classes("flex-1")
+                ui.label("Téléphone").classes("w-40")
+                ui.label("Salles").classes("w-28")
+
+            rows_view()
 
     dialog.open()

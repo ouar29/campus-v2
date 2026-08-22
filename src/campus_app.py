@@ -59,7 +59,13 @@ from ui.dialogs import (
 )
 from ui.layout import build_header, build_sidebar, build_main_area
 from ui.theme import apply_theme
-from ui.views import open_campus_map_dialog, open_overview_dialog, open_room_table_dialog, open_validation_dialog
+from ui.views import (
+    open_campus_map_dialog,
+    open_gestionnaires_dialog,
+    open_overview_dialog,
+    open_room_table_dialog,
+    open_validation_dialog,
+)
 
 THEME_PRIMARY = "#6366f1"
 THEME_SECONDARY = "#4f46e5"
@@ -336,7 +342,7 @@ class CampusApp:
                 bg,
                 content=floor_plan_content(floor, origin_x, origin_y, text_scale),
                 on_mouse=self.on_mouse,
-                events=["mousedown", "mousemove", "mouseup"],
+                events=["mousedown", "mousemove", "mouseup", "dblclick"],
             ).classes("w-full").style("max-width: 900px")
             self.state["plan_image"] = img
 
@@ -435,6 +441,18 @@ class CampusApp:
             self.state["pending_room_capacity"] = None
             self.room_list.refresh()
             self.render_plan_area()
+            return
+
+        if e.type == "dblclick":
+            nearest = min(
+                floor.rooms,
+                key=lambda r: (r.position[0] - wx) ** 2 + (r.position[1] - wy) ** 2,
+                default=None,
+            )
+            if nearest is not None:
+                dist = ((nearest.position[0] - wx) ** 2 + (nearest.position[1] - wy) ** 2) ** 0.5
+                if dist <= DRAG_THRESHOLD_UNITS:
+                    self.open_room_table_dialog(focus_room_id=nearest.id)
             return
 
         if e.type == "mousedown":
@@ -543,8 +561,11 @@ class CampusApp:
     def open_overview_dialog(self) -> None:
         open_overview_dialog(self)
 
-    def open_room_table_dialog(self) -> None:
-        open_room_table_dialog(self)
+    def open_room_table_dialog(self, focus_room_id: str | None = None) -> None:
+        open_room_table_dialog(self, focus_room_id=focus_room_id)
+
+    def open_gestionnaires_dialog(self) -> None:
+        open_gestionnaires_dialog(self)
 
     def open_validation_dialog(self) -> None:
         open_validation_dialog(self)

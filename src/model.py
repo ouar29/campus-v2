@@ -24,6 +24,81 @@ from typing import Any
 
 Point = list[float]  # [x, y]
 
+@dataclass
+class Gestionnaire:
+    id: str
+    nom: str
+    email: str = ""
+    telephone: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "nom": self.nom,
+            "email": self.email,
+            "telephone": self.telephone,
+        }
+
+    @staticmethod
+    def from_dict(data: dict) -> "Gestionnaire":
+        return Gestionnaire(
+            id=data["id"],
+            nom=data.get("nom", ""),
+            email=data.get("email", ""),
+            telephone=data.get("telephone", ""),
+        )
+
+def _room_manager_key(name: str, email: str) -> tuple[str, str]:
+    return name.strip().lower(), (email or "").strip().lower()
+
+
+def migrate_room_managers(campus: "Campus") -> int:
+    """Fusionne les anciens `extra["roomManagers"]` (liste libre par salle,
+    héritée du format .cps d'origine) dans l'annuaire partagé
+    `campus.gestionnaires`, et relie chaque salle via `gestionnaire_ids`.
+
+    Les gestionnaires sont dédupliqués par (nom, email), insensible à la
+    casse. Le champ `extra["roomManagers"]` est retiré une fois migré : il
+    ne doit plus subsister qu'une seule source de vérité pour les
+    gestionnaires de salle. `export_cps.py` doit reconstruire `roomManagers`
+    à partir de `gestionnaire_ids` au moment de l'export, pour rester
+    conforme au format .cps d'origine.
+
+    Retourne le nombre de gestionnaires nouvellement créés.
+    """
+    lookup: dict[tuple[str, str], Gestionnaire] = {
+        _room_manager_key(g.nom, g.email): g for g in campus.gestionnaires
+    }
+    created = 0
+
+    for building in campus.buildings:
+        for floor in building.floors:
+            for room in floor.rooms:
+                legacy = room.extra.pop("roomManagers", None)
+                if not legacy:
+                    continue
+                for m in legacy.get("value", []):
+                    name = (m.get("name") or "").strip()
+                    if not name:
+                        continue
+                    email = (m.get("email") or "").strip()
+                    telephone = (m.get("telephoneNumber") or "").strip()
+                    key = _room_manager_key(name, email)
+                    gestionnaire = lookup.get(key)
+                    if gestionnaire is None:
+                        gestionnaire = Gestionnaire(
+                            id=f"gest-{uuid.uuid4().hex[:8]}", nom=name, email=email, telephone=telephone
+                        )
+                        campus.gestionnaires.append(gestionnaire)
+                        lookup[key] = gestionnaire
+                        created += 1
+                    elif telephone and not gestionnaire.telephone:
+                        gestionnaire.telephone = telephone
+                    if gestionnaire.id not in room.gestionnaire_ids:
+                        room.gestionnaire_ids.append(gestionnaire.id)
+
+    return created
+
 
 @dataclass
 class Room:
@@ -31,6 +106,7 @@ class Room:
     name: str
     capacity: int
     position: Point = field(default_factory=lambda: [0.0, 0.0])
+    gestionnaire_ids: list[str] = field(default_factory=list)
     extra: dict[str, Any] = field(default_factory=dict)
 
 
@@ -73,6 +149,7 @@ class Campus:
     id: str
     name: str
     buildings: list[Building] = field(default_factory=list)
+    gestionnaires: list[Gestionnaire] = field(default_factory=list)
     extra: dict[str, Any] = field(default_factory=dict)
 
     def add_building(self, name: str, position: Point | None = None) -> Building:
@@ -90,7 +167,9 @@ class Campus:
         p = Path(path)
         with open(p, "r", encoding="utf-8") as f:
             data = json.load(f)
-        return Campus._from_dict(data)
+        campus = Campus._from_dict(data)
+        migrate_room_managers(campus)
+        return campus
 
     def save(self, path: str | Path) -> None:
         Path(path).write_text(
@@ -109,6 +188,7 @@ class Campus:
                         name=r["name"],
                         capacity=r["capacity"],
                         position=r.get("position", [0.0, 0.0]),
+                        gestionnaire_ids=r.get("gestionnaire_ids", []),
                         extra=r.get("extra", {}),
                     )
                     for r in f.get("rooms", [])
@@ -132,4 +212,11 @@ class Campus:
                     extra=b.get("extra", {}),
                 )
             )
-        return Campus(id=data["id"], name=data["name"], buildings=buildings, extra=data.get("extra", {}))
+        gestionnaires = [Gestionnaire.from_dict(g) for g in data.get("gestionnaires", [])]
+        return Campus(
+            id=data["id"],
+            name=data["name"],
+            buildings=buildings,
+            gestionnaires=gestionnaires,
+            extra=data.get("extra", {}),
+        )

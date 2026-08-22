@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from model import Campus, Building, Floor
+import uuid
+
+from model import Campus, Building, Floor, Gestionnaire, Room
 from services.campus_service import CampusService
 from services.floor_service import FloorService
 from services.room_service import RoomService
@@ -38,6 +40,58 @@ class CampusController:
 
     def get_floor(self, building: Building, floor_id: str) -> Floor | None:
         return next((f for f in building.floors if f.id == floor_id), None)
+
+    def _iter_rooms(self):
+        for building in self.campus.buildings:
+            for floor in building.floors:
+                yield from floor.rooms
+
+    def get_room(self, room_id: str) -> Room | None:
+        return next((r for r in self._iter_rooms() if r.id == room_id), None)
+
+    # ---------- Gestionnaires de salles ----------
+
+    def get_gestionnaires(self) -> list[Gestionnaire]:
+        return self.campus.gestionnaires
+
+    def get_gestionnaire(self, gestionnaire_id: str) -> Gestionnaire | None:
+        return next((g for g in self.campus.gestionnaires if g.id == gestionnaire_id), None)
+
+    def add_gestionnaire(self, nom: str, email: str = "", telephone: str = "") -> Gestionnaire:
+        gestionnaire = Gestionnaire(id=f"gest-{uuid.uuid4().hex[:8]}", nom=nom, email=email, telephone=telephone)
+        self.campus.gestionnaires.append(gestionnaire)
+        self.save()
+        return gestionnaire
+
+    def update_gestionnaire(self, gestionnaire_id: str, **changes) -> None:
+        gestionnaire = self.get_gestionnaire(gestionnaire_id)
+        if gestionnaire is None:
+            raise ValueError(f"Gestionnaire introuvable : {gestionnaire_id}")
+        for key, value in changes.items():
+            setattr(gestionnaire, key, value)
+        self.save()
+
+    def delete_gestionnaire(self, gestionnaire_id: str, *, cascade: bool = True) -> None:
+        rooms_using = [r for r in self._iter_rooms() if gestionnaire_id in r.gestionnaire_ids]
+        if rooms_using and not cascade:
+            raise ValueError(f"Gestionnaire assigné à {len(rooms_using)} salle(s), suppression bloquée.")
+        for room in rooms_using:
+            room.gestionnaire_ids = [gid for gid in room.gestionnaire_ids if gid != gestionnaire_id]
+        self.campus.gestionnaires = [g for g in self.campus.gestionnaires if g.id != gestionnaire_id]
+        self.save()
+
+    def get_rooms_for_gestionnaire(self, gestionnaire_id: str) -> list[Room]:
+        return [r for r in self._iter_rooms() if gestionnaire_id in r.gestionnaire_ids]
+
+    def assign_gestionnaires_to_room(self, room_id: str, gestionnaire_ids: list[str]) -> None:
+        room = self.get_room(room_id)
+        if room is None:
+            raise ValueError(f"Salle introuvable : {room_id}")
+        unknown = [gid for gid in gestionnaire_ids if self.get_gestionnaire(gid) is None]
+        if unknown:
+            raise ValueError(f"Gestionnaire(s) introuvable(s) : {unknown}")
+        room.gestionnaire_ids = list(dict.fromkeys(gestionnaire_ids))
+        self.save()
 
     def buildings_options(self) -> dict[str, str]:
         return {b.id: b.name for b in self.campus.buildings}
