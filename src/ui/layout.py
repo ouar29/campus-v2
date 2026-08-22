@@ -9,6 +9,7 @@ def build_header(campus_app):
         with ui.row().classes("items-center gap-2"):
             ui.button("Importer .cps", icon="upload_file", on_click=campus_app.import_cps_dialog).props("outline color=white")
             ui.button("Exporter .cps", icon="download", on_click=campus_app.export_cps_dialog).props("outline color=white")
+            ui.button("Valider .cps", icon="fact_check", on_click=campus_app.open_validation_dialog).props("outline color=white")
             ui.button("Toutes les salles", icon="table_rows", on_click=campus_app.open_room_table_dialog).props("outline color=white")
             ui.button("Plan du campus", icon="map", on_click=campus_app.open_campus_map_dialog).props("outline color=white")
             ui.button("Vue d'ensemble (isométrique)", icon="view_in_ar", on_click=campus_app.open_overview_dialog).props("outline color=white")

@@ -7,6 +7,7 @@ authors = [
 ]
 requires-python = ">=3.11,<3.16"
 dependencies = [
+    "jsonschema>=4.26.0",
     "nicegui>=3.0,<4.0",
     # Dossier de données utilisateur multiplateforme (AppData / Application
     # Support / .local/share) — utilisé par get_data_path() dans campus_app.py

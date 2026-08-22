@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Campus (.cps)",
+  "description": "Schema derive des exemples de fichiers .cps du projet. A remplacer par le schema officiel de l'autre systeme des qu'il est disponible.",
+  "type": "object",
+  "required": ["buildings", "name", "version"],
+  "additionalProperties": false,
+  "properties": {
+    "buildings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Building" }
+    },
+    "name": { "type": "string" },
+    "version": { "type": "string" }
+  },
+  "$defs": {
+    "Coordinates": {
+      "type": "object",
+      "required": ["x", "y", "z", "hash"],
+      "additionalProperties": false,
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "z": { "type": "number" },
+        "hash": { "type": "integer" }
+      }
+    },
+    "Dimensions": {
+      "type": "object",
+      "required": ["width", "height", "hash"],
+      "additionalProperties": false,
+      "properties": {
+        "width": { "type": "number" },
+        "height": { "type": "number" },
+        "hash": { "type": "integer" }
+      }
+    },
+    "RoomManager": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "telephoneNumber": { "type": "string" },
+        "email": { "type": "string" }
+      }
+    },
+    "Room": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "dimensions",
+        "location",
+        "roomType",
+        "access",
+        "available",
+        "capacity"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "integer" },
+        "name": { "type": "string" },
+        "oldName": { "type": "string" },
+        "altName": { "type": "string" },
+        "roomManagers": {
+          "type": "object",
+          "required": ["value"],
+          "additionalProperties": false,
+          "properties": {
+            "value": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/RoomManager" }
+            }
+          }
+        },
+        "access": {
+          "type": "string",
+          "description": "Valeurs observees : CD, FREE, RESTRICTED. Liste possiblement incomplete."
+        },
+        "available": { "type": "boolean" },
+        "capacity": { "type": "integer", "minimum": 0 },
+        "equipments": { "type": "array" },
+        "roomBookingType": { "type": "string" },
+        "comment": { "type": "string" },
+        "zone": { "type": "string" },
+        "roomType": {
+          "type": "string",
+          "description": "Seule valeur confirmee a ce jour : meetingRoom. A completer une fois la liste exacte confirmee dans model.py."
+        },
+        "telephoneNumber": { "type": "string" },
+        "type": {
+          "type": "string",
+          "description": "Valeur observee : NONE. Liste possiblement incomplete."
+        },
+        "dimensions": { "$ref": "#/$defs/Dimensions" },
+        "location": { "$ref": "#/$defs/Coordinates" }
+      }
+    },
+    "Floor": {
+      "type": "object",
+      "required": ["id", "name", "rooms", "points", "dimensions", "location"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "integer" },
+        "name": { "type": "string" },
+        "rooms": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Room" }
+        },
+        "points": {
+          "type": "array",
+          "description": "Liste plate [x1, y1, x2, y2, ...] formant le contour du plan. Doit contenir un nombre pair d'elements.",
+          "items": { "type": "number" }
+        },
+        "zoneMarkers": { "type": "array" },
+        "dimensions": { "$ref": "#/$defs/Dimensions" },
+        "location": { "$ref": "#/$defs/Coordinates" }
+      }
+    },
+    "Building": {
+      "type": "object",
+      "required": ["id", "name", "floors", "location"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "integer" },
+        "name": { "type": "string" },
+        "floors": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Floor" }
+        },
+        "location": { "$ref": "#/$defs/Coordinates" }
+      }
+    }
+  }
+}

@@ -59,7 +59,7 @@ from ui.dialogs import (
 )
 from ui.layout import build_header, build_sidebar, build_main_area
 from ui.theme import apply_theme
-from ui.views import open_campus_map_dialog, open_overview_dialog, open_room_table_dialog
+from ui.views import open_campus_map_dialog, open_overview_dialog, open_room_table_dialog, open_validation_dialog
 
 THEME_PRIMARY = "#6366f1"
 THEME_SECONDARY = "#4f46e5"
@@ -545,6 +545,9 @@ class CampusApp:
 
     def open_room_table_dialog(self) -> None:
         open_room_table_dialog(self)
+
+    def open_validation_dialog(self) -> None:
+        open_validation_dialog(self)
 
     def _refresh_campus_selection(self) -> None:
         if hasattr(self, "session_select") and self.session_select is not None:
