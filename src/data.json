@@ -114,7 +114,7 @@
                 42.94
               ],
               "gestionnaire_ids": [
-                "gest-796b8e7a"
+                "gest-1216070e"
               ],
               "extra": {
                 "oldName": "",
@@ -350,7 +350,7 @@
                 23.5
               ],
               "gestionnaire_ids": [
-                "gest-57366430"
+                "gest-0283edcf"
               ],
               "extra": {
                 "oldName": "",
@@ -460,12 +460,12 @@
               "name": "CAP FERRAT",
               "capacity": 8,
               "position": [
-                20.82,
-                46.81
+                21.0,
+                47.0
               ],
               "gestionnaire_ids": [
-                "gest-57366430",
-                "gest-7b9d1d16"
+                "gest-0283edcf",
+                "gest-95eacba9"
               ],
               "extra": {
                 "oldName": "",
@@ -768,19 +768,19 @@
   ],
   "gestionnaires": [
     {
-      "id": "gest-796b8e7a",
+      "id": "gest-1216070e",
       "nom": "CocoYa",
-      "email": "coco@coco.com",
-      "telephone": "06 77 88 99 11 22"
+      "email": "cocoya@orga.com",
+      "telephone": "06 77 88 99 00 11"
     },
     {
-      "id": "gest-57366430",
+      "id": "gest-0283edcf",
       "nom": "Isa",
-      "email": "",
-      "telephone": ""
+      "email": "isa@orga.com",
+      "telephone": "06 55 88 99 55"
     },
     {
-      "id": "gest-7b9d1d16",
+      "id": "gest-95eacba9",
       "nom": "Coco",
       "email": "",
       "telephone": "02 98 25 63 56"
@@ -788,6 +788,6 @@
   ],
   "extra": {
     "name": "Site",
-    "version": "2026-08-22"
+    "version": "2026-08-15"
   }
 }

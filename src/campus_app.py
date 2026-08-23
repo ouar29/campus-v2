@@ -62,10 +62,9 @@ from ui.theme import apply_theme
 from ui.views import (
     open_campus_map_dialog,
     open_gestionnaires_dialog,
-    open_overview_dialog,
-    open_room_table_dialog,
     open_validation_dialog,
 )
+from ui.campus_overview_view import open_overview_dialog
 
 THEME_PRIMARY = "#6366f1"
 THEME_SECONDARY = "#4f46e5"

@@ -37,7 +37,7 @@
     },
     "RoomManager": {
       "type": "object",
-      "required": ["name"],
+      "required": ["name", "telephoneNumber", "email"],
       "additionalProperties": false,
       "properties": {
         "name": { "type": "string" },
@@ -76,22 +76,29 @@
         },
         "access": {
           "type": "string",
-          "description": "Valeurs observees : CD, FREE, RESTRICTED. Liste possiblement incomplete."
+          "enum": ["NONE", "FREE", "RESTRICTED", "CD"],
+          "description": "Niveau d'accès de la salle. NONE = accès libre, non soumis à accréditation (équivalent métier de FREE). RESTRICTED = accès soumis à accréditation. CD = code spécifique à confirmer côté système source. Liste verrouillée sur les 4 valeurs confirmées à ce jour."
         },
         "available": { "type": "boolean" },
         "capacity": { "type": "integer", "minimum": 0 },
         "equipments": { "type": "array" },
-        "roomBookingType": { "type": "string" },
+        "roomBookingType": {
+          "type": "string",
+          "enum": ["PROJECT_DEDICATED", ""],
+          "description": "Verrouillé volontairement sur les seules valeurs confirmées à ce jour (chaîne vide incluse, observée telle quelle). Même logique que roomType/type : toute valeur différente fera échouer la validation à l'intégration réelle, pour être détectée explicitement plutôt que passer inaperçue."
+        },
         "comment": { "type": "string" },
         "zone": { "type": "string" },
         "roomType": {
           "type": "string",
-          "description": "Seule valeur confirmee a ce jour : meetingRoom. A completer une fois la liste exacte confirmee dans model.py."
+          "enum": ["meetingRoom"],
+          "description": "Verrouillé volontairement sur la seule valeur confirmée à ce jour. But recherché : toute salle avec un roomType différent fera échouer la validation lors de l'intégration avec un fichier réel, pour repérer explicitement les nouvelles valeurs à ajouter à cet enum plutôt que de les laisser passer silencieusement."
         },
         "telephoneNumber": { "type": "string" },
         "type": {
           "type": "string",
-          "description": "Valeur observee : NONE. Liste possiblement incomplete."
+          "enum": ["NONE"],
+          "description": "Verrouillé volontairement sur la seule valeur confirmée à ce jour. Même logique que roomType : toute valeur différente fera échouer la validation à l'intégration réelle, pour être détectée explicitement plutôt que passer inaperçue."
         },
         "dimensions": { "$ref": "#/$defs/Dimensions" },
         "location": { "$ref": "#/$defs/Coordinates" }
