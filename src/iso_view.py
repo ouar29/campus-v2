@@ -123,24 +123,94 @@ def _ground_grid_svg(screen_x_range: tuple[float, float], screen_y_range: tuple[
     return "".join(lines)
 
 
-POSITION_COMPRESSION_K = 14        # facteur de compression des écarts entre bâtiments (vue schématique uniquement)
-POSITION_COMPRESSION_POWER = 0.22  # exposant < 1 : compresse d'autant plus que l'écart est grand,
-                                    # tout en préservant un espacement suffisant pour des bâtiments proches
+POSITION_COMPRESSION_MIN_SLOPE = 0.2  # pente locale minimale garantie, même très loin du centroïde
+POSITION_COMPRESSION_SPAN = 40.0      # distance (unités monde) à partir de laquelle la compression devient sensible
 
 
 def _compress_position(centroid_x: float, centroid_y: float, position: list[float]) -> tuple[float, float]:
     """Compresse la position d'un bâtiment par rapport au centre du campus,
-    de façon non-linéaire (loi de puissance < 1) : les grands écarts sont
-    resserrés bien plus que les petits, qui restent quasiment préservés (pour
-    ne pas faire se chevaucher des bâtiments proches). Utilisé UNIQUEMENT pour
-    la mise en page de la vue isométrique schématique — n'affecte ni la
-    position réelle stockée, ni le plan du campus (vue du dessus), qui restent
-    à l'échelle réelle. Sans ça, deux bâtiments très éloignés sur le campus
-    réel écraseraient visuellement tous les autres dans cette vue d'ensemble."""
+    pour que les grands écarts (campus étalé) n'écrasent pas visuellement les
+    autres bâtiments dans cette vue d'ensemble schématique. Utilisé
+    UNIQUEMENT pour la mise en page de la vue isométrique — n'affecte ni la
+    position réelle stockée, ni le plan du campus (vue du dessus), qui reste
+    à l'échelle réelle.
+
+    `MIN_SLOPE*d + (1-MIN_SLOPE)*SPAN*tanh(d/SPAN)` plutôt qu'une loi de
+    puissance : la tangente hyperbolique donne une pente locale de 1 à
+    l'origine (petits écarts quasi préservés, comme voulu), qui décroît
+    ensuite mais ne descend JAMAIS sous `MIN_SLOPE` (la composante linéaire
+    du terme). Avec l'ancienne loi de puissance `K*d^p`, la pente locale
+    `K*p*d^(p-1)` tendait vers 0 quand `d` augmentait : deux bâtiments
+    proches l'un de l'autre mais tous deux loin du centroïde (par ex. à
+    cause d'un troisième bâtiment isolé ailleurs sur le campus, qui déplace
+    le centroïde) voyaient alors leur écart mutuel quasiment écrasé à zéro
+    après compression — d'où des collisions visuelles dans la vue iso alors
+    que les bâtiments sont clairement séparés dans la vue plan (à l'échelle
+    réelle, non déformée).
+
+    Cette pente plancher réduit fortement le risque de collision mais ne
+    l'élimine pas complètement à elle seule (un écart réel modeste entre deux
+    bâtiments très éloignés du centroïde peut encore donner un écart affiché
+    inférieur à l'empreinte schématique) : voir `_declutter_positions`, qui
+    apporte la garantie géométrique finale.
+    """
     dx, dy = position[0] - centroid_x, position[1] - centroid_y
-    cx = (1 if dx >= 0 else -1) * (abs(dx) ** POSITION_COMPRESSION_POWER) * POSITION_COMPRESSION_K
-    cy = (1 if dy >= 0 else -1) * (abs(dy) ** POSITION_COMPRESSION_POWER) * POSITION_COMPRESSION_K
+    span = POSITION_COMPRESSION_SPAN
+    slope = POSITION_COMPRESSION_MIN_SLOPE
+    cx = slope * dx + (1 - slope) * span * math.tanh(dx / span)
+    cy = slope * dy + (1 - slope) * span * math.tanh(dy / span)
     return cx, cy
+
+
+MIN_BUILDING_SEPARATION = FOOTPRINT_SIZE * 1.15  # marge de sécurité au-delà de l'empreinte schématique
+DECLUTTER_ITERATIONS = 60
+
+
+def _declutter_positions(positions: dict[str, tuple[float, float]]) -> dict[str, tuple[float, float]]:
+    """Écarte itérativement les bâtiments dont la position calculée (après
+    compression) serait trop proche d'un autre pour afficher deux empreintes
+    schématiques sans chevauchement, en les repoussant le long de l'axe qui
+    les relie.
+
+    Filet de sécurité géométrique : garantit l'absence de collision visuelle
+    quelle que soit l'imperfection résiduelle de `_compress_position` (dont
+    la compression, même avec pente plancher, ne suffit pas toujours à elle
+    seule — voir sa docstring), plutôt que de compter uniquement sur un
+    compromis mathématique parfait entre « compresser les grands écarts » et
+    « ne jamais rapprocher deux bâtiments voisins ».
+    """
+    ids = list(positions.keys())
+    if len(ids) < 2:
+        return dict(positions)
+
+    pos = {k: list(v) for k, v in positions.items()}
+    for _ in range(DECLUTTER_ITERATIONS):
+        moved = False
+        for i in range(len(ids)):
+            for j in range(i + 1, len(ids)):
+                a, b = ids[i], ids[j]
+                dx = pos[b][0] - pos[a][0]
+                dy = pos[b][1] - pos[a][1]
+                dist = math.hypot(dx, dy)
+                if dist >= MIN_BUILDING_SEPARATION:
+                    continue
+                moved = True
+                if dist < 1e-6:
+                    # Positions quasi identiques : direction arbitraire mais
+                    # stable (angle d'or, évite les alignements dégénérés
+                    # entre plus de deux bâtiments superposés).
+                    angle = (i - j) * 2.399963
+                    ux, uy = math.cos(angle), math.sin(angle)
+                else:
+                    ux, uy = dx / dist, dy / dist
+                overlap = (MIN_BUILDING_SEPARATION - dist) / 2
+                pos[a][0] -= ux * overlap
+                pos[a][1] -= uy * overlap
+                pos[b][0] += ux * overlap
+                pos[b][1] += uy * overlap
+        if not moved:
+            break
+    return {k: (v[0], v[1]) for k, v in pos.items()}
 
 
 def _build_overview(campus: Campus, angle_deg: float = 0.0) -> tuple[str, float, float]:
@@ -168,8 +238,14 @@ def _build_overview(campus: Campus, angle_deg: float = 0.0) -> tuple[str, float,
     else:
         centroid_x = centroid_y = 0.0
 
+    raw_positions = {
+        building.id: _compress_position(centroid_x, centroid_y, building.position)
+        for building in campus.buildings
+    }
+    building_positions = _declutter_positions(raw_positions)
+
     for building in campus.buildings:
-        bx, by = _compress_position(centroid_x, centroid_y, building.position)
+        bx, by = building_positions[building.id]
         color = PALETTE[hash(building.id) % len(PALETTE)]
         wall_color = _darken(color)
 
