@@ -38,6 +38,8 @@ def build_sidebar(campus_app):
                 on_change=lambda e: campus_app.switch_session(e.value),
             ).classes("w-full")
 
+            campus_app.version_info()
+
         # --- Sélection : où je me trouve dans le campus courant ---
         # Bâtiment + étage + salles regroupés ensemble, nettement séparés
         # de la session ci-dessus.

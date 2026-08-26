@@ -67,6 +67,7 @@ def test_import_replaces_model_and_refreshes_selection(monkeypatch, tmp_path):
     app.building_select = FakeSelect()
     app.floor_select = FakeSelect()
     app.room_list = FakeList()
+    app.version_info = FakeList()
     app.plan_container = None
     app.save = lambda: None
 

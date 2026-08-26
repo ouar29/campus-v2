@@ -49,6 +49,28 @@ class CampusController:
     def get_room(self, room_id: str) -> Room | None:
         return next((r for r in self._iter_rooms() if r.id == room_id), None)
 
+    def find_room_location(self, room_id: str) -> tuple[Building, Floor] | tuple[None, None]:
+        for building in self.campus.buildings:
+            for floor in building.floors:
+                if any(r.id == room_id for r in floor.rooms):
+                    return building, floor
+        return None, None
+
+    def move_room(self, room_id: str, target_building_id: str, target_floor_id: str) -> bool:
+        room = self.get_room(room_id)
+        _, source_floor = self.find_room_location(room_id)
+        if room is None or source_floor is None:
+            raise ValueError(f"Salle introuvable : {room_id}")
+        target_building = self.get_building(target_building_id)
+        if target_building is None:
+            raise ValueError(f"Bâtiment introuvable : {target_building_id}")
+        target_floor = self.get_floor(target_building, target_floor_id)
+        if target_floor is None:
+            raise ValueError(f"Étage introuvable : {target_floor_id}")
+        moved = self.room_service.move_room(source_floor, room, target_floor)
+        self.save()
+        return moved
+
     # ---------- Gestionnaires de salles ----------
 
     def get_gestionnaires(self) -> list[Gestionnaire]:

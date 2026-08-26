@@ -115,24 +115,18 @@ def open_room_table_dialog(app, focus_room_id: str | None = None) -> None:
             app.room_list.refresh()
             app.render_plan_area()
 
-        def on_capacity_change(e) -> None:
-            try:
-                new_capacity = int(e.value)
-            except (TypeError, ValueError):
-                return
-            if new_capacity < 1:
-                ui.notify("La capacité doit être d'au moins 1 personne", color="warning")
-                return
-            room.capacity = new_capacity
-            app.save()
-            app.room_list.refresh()
-            app.render_plan_area()
+        is_unavailable = not room.extra.get("available", True)
+        row_classes = "w-full items-center gap-3 py-1 border-b border-gray-100 dark:border-gray-700"
+        if is_unavailable:
+            row_classes += " opacity-60"
 
-        with ui.row().classes("w-full items-center gap-3 py-1 border-b border-gray-100 dark:border-gray-700"):
+        with ui.row().classes(row_classes):
             ui.label(building.name).classes("w-40 text-sm text-gray-600 dark:text-gray-300")
             ui.label(floor.name).classes("w-40 text-sm text-gray-600 dark:text-gray-300")
             ui.input(value=room.name, on_change=on_name_change).classes("flex-1").props("dense")
-            ui.number(value=room.capacity, min=1, precision=0, on_change=on_capacity_change).classes("w-32").props("dense")
+            ui.label(f"{room.capacity} pers.").classes("w-32 text-sm text-gray-600 dark:text-gray-300")
+            if is_unavailable:
+                ui.icon("block").classes("text-red-500 dark:text-red-400").tooltip("Indisponible")
             ui.button(icon="tune", on_click=lambda: open_room_details_dialog(app, room)).props("flat round size=sm").tooltip("Détails avancés")
 
     def open_room_details_dialog(app, room: Room) -> None:
@@ -175,6 +169,51 @@ def open_room_table_dialog(app, focus_room_id: str | None = None) -> None:
                 multiple=True,
             ).classes("w-full").props("use-chips dense")
 
+            ui.separator().classes("my-1")
+            ui.label("Déplacer vers un autre étage").classes(
+                "text-sm font-semibold text-gray-500 dark:text-gray-300"
+            )
+            current_building, current_floor = app.controller.find_room_location(room.id)
+            with ui.row().classes("w-full gap-3"):
+                move_building_select = ui.select(
+                    app.controller.buildings_options(),
+                    value=current_building.id if current_building else None,
+                    label="Bâtiment cible",
+                ).classes("flex-1")
+                move_floor_select = ui.select(
+                    app.controller.floors_options(current_building),
+                    value=current_floor.id if current_floor else None,
+                    label="Étage cible",
+                ).classes("flex-1")
+
+            def on_move_building_change(e) -> None:
+                target_building = app.controller.get_building(e.value)
+                move_floor_select.set_options(app.controller.floors_options(target_building))
+                move_floor_select.value = target_building.floors[0].id if target_building and target_building.floors else None
+
+            move_building_select.on_value_change(on_move_building_change)
+
+            def do_move() -> None:
+                if not move_building_select.value or not move_floor_select.value:
+                    ui.notify("Choisis un bâtiment et un étage cibles", color="warning")
+                    return
+                try:
+                    moved = app.controller.move_room(room.id, move_building_select.value, move_floor_select.value)
+                except ValueError as exc:
+                    ui.notify(str(exc), color="warning")
+                    return
+                if not moved:
+                    ui.notify("La salle est déjà sur cet étage", color="warning")
+                    return
+                ui.notify("Salle déplacée — repositionne-la par glisser-déposer sur le plan.")
+                app.room_list.refresh()
+                app.render_plan_area()
+                rows_view.refresh()
+                dialog.close()
+
+            with ui.row().classes("w-full justify-end"):
+                ui.button("Déplacer", icon="move_down", on_click=do_move).props("outline")
+
             def confirm() -> None:
                 extra["oldName"] = old_name_input.value or ""
                 extra["altName"] = alt_name_input.value or ""
@@ -189,6 +228,9 @@ def open_room_table_dialog(app, focus_room_id: str | None = None) -> None:
                 extra["equipments"] = [s.strip() for s in (equipments_input.value or "").split(",") if s.strip()]
                 app.controller.assign_gestionnaires_to_room(room.id, gestionnaires_select.value or [])
                 app.save()
+                app.room_list.refresh()
+                app.render_plan_area()
+                rows_view.refresh()
                 ui.notify("Détails enregistrés")
                 dialog.close()
 

@@ -245,14 +245,25 @@ class CampusApp:
         return {f.id: f.name for f in building.floors} if building else {}
 
     @ui.refreshable
+    def version_info(self) -> None:
+        version = self.campus.extra.get("version")
+        text = f"Version du fichier : {version}" if version else "Version du fichier : inconnue"
+        ui.label(text).classes("text-xs text-indigo-600 dark:text-indigo-300")
+
+    @ui.refreshable
     def room_list(self) -> None:
         floor = self.state["floor"]
         if floor is None or not floor.rooms:
             ui.label("Aucune salle sur cet étage.").classes("text-sm text-gray-500 dark:text-gray-300")
             return
         for room in floor.rooms:
-            with ui.row().classes("items-center gap-2 w-full py-1 border-b border-gray-100 dark:border-gray-700"):
-                ui.icon("meeting_room").classes("text-blue-600 dark:text-indigo-300")
+            is_unavailable = not room.extra.get("available", True)
+            row_classes = "items-center gap-2 w-full py-1 border-b border-gray-100 dark:border-gray-700"
+            if is_unavailable:
+                row_classes += " opacity-60"
+            with ui.row().classes(row_classes):
+                icon_color = "text-red-500 dark:text-red-400" if is_unavailable else "text-blue-600 dark:text-indigo-300"
+                ui.icon("meeting_room").classes(icon_color)
                 ui.label(room.name).classes("font-medium grow")
                 ui.label(f"{room.capacity} pers.").classes("text-sm text-gray-500 dark:text-gray-300")
 
@@ -571,6 +582,7 @@ class CampusApp:
         open_validation_dialog(self)
 
     def _refresh_campus_selection(self) -> None:
+        self.version_info.refresh()
         if hasattr(self, "session_select") and self.session_select is not None:
             self.session_select.set_options(self.session_options())
             self.session_select.value = self.current_session_key

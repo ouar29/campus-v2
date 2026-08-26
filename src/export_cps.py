@@ -27,6 +27,13 @@ from model import Campus, Building, Floor, Gestionnaire, Room
 
 _id_counter = itertools.count(900_000)  # ids synthétiques pour les entités créées dans l'appli
 
+# Nom du bâtiment placeholder créé par campus-factory pour les salles issues
+# d'un import Excel en attente de positionnement manuel (voir campus-factory,
+# merge_engine.PENDING_BUILDING_NAME) : il ne doit jamais être ré-exporté tel
+# quel, ses salles n'ayant pas de géométrie réelle tant qu'elles n'ont pas été
+# repositionnées sur un vrai étage dans cette appli.
+PENDING_BUILDING_NAME = "À positionner (campus-factory)"
+
 
 def _default_location() -> dict:
     return {"x": 0.0, "y": 0.0, "z": 0.0, "hash": 0}
@@ -109,7 +116,11 @@ def export_campus(campus: Campus) -> dict:
     out = {k: v for k, v in campus.extra.items() if k != "buildings"}
     out["name"] = campus.name
     out["version"] = date.today().isoformat()
-    out["buildings"] = [export_building(b, gestionnaire_by_id) for b in campus.buildings]
+    out["buildings"] = [
+        export_building(b, gestionnaire_by_id)
+        for b in campus.buildings
+        if b.name != PENDING_BUILDING_NAME
+    ]
     return out
 
 

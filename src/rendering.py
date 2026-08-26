@@ -76,10 +76,19 @@ def room_svg(room: Room, origin_x: float, origin_y: float, text_scale: float = 1
     cap_font = 18 * text_scale
     gap_above = 12 * text_scale
     gap_below = 26 * text_scale
+    is_unavailable = not room.extra.get("available", True)
+    if is_unavailable:
+        fill, fill_opacity, stroke, dash = "#6b7280", "0.6", "#ef4444", ' stroke-dasharray="4,3"'
+        name_fill = TEXT_SECONDARY
+        title_suffix = " (indisponible)"
+    else:
+        fill, fill_opacity, stroke, dash = "#93c5fd", "0.9", "#1d4ed8", ""
+        name_fill = TEXT_PRIMARY
+        title_suffix = ""
     return (
-        f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="#93c5fd" fill-opacity="0.9" '
-        f'stroke="#1d4ed8" stroke-width="2"><title>{room.name} — {room.capacity} pers.</title></circle>'
-        f'<text x="{cx}" y="{cy - r - gap_above:.2f}" font-size="{name_font:.2f}" font-weight="700" text-anchor="middle" fill="{TEXT_PRIMARY}">{room.name}</text>'
+        f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="{fill}" fill-opacity="{fill_opacity}" '
+        f'stroke="{stroke}" stroke-width="2"{dash}><title>{room.name} — {room.capacity} pers.{title_suffix}</title></circle>'
+        f'<text x="{cx}" y="{cy - r - gap_above:.2f}" font-size="{name_font:.2f}" font-weight="700" text-anchor="middle" fill="{name_fill}">{room.name}</text>'
         f'<text x="{cx}" y="{cy + r + gap_below:.2f}" font-size="{cap_font:.2f}" font-weight="600" text-anchor="middle" fill="{TEXT_SECONDARY}">{room.capacity} pers.</text>'
     )
 

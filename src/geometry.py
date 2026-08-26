@@ -15,6 +15,14 @@ VERTEX_DRAG_THRESHOLD = 1.2
 EDGE_INSERT_THRESHOLD = 0.9
 
 
+def polygon_centroid(polygon: list[list[float]]) -> list[float]:
+    if not polygon:
+        return [0.0, 0.0]
+    xs = [p[0] for p in polygon]
+    ys = [p[1] for p in polygon]
+    return [round(sum(xs) / len(xs), 2), round(sum(ys) / len(ys), 2)]
+
+
 def bounding_box(polygon: list[list[float]]) -> tuple[float, float, float, float]:
     xs = [p[0] for p in polygon]
     ys = [p[1] for p in polygon]
