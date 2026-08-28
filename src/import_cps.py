@@ -74,7 +74,7 @@ def _load_json_lenient(path: str) -> dict:
         try:
             data = json.loads(cleaned)
         except json.JSONDecodeError:
-            raise first_error
+            raise first_error from None
 
         return data
 

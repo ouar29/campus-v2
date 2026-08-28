@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any, Callable
-
 from nicegui import ui
 
 
@@ -65,7 +63,6 @@ def open_new_floor_dialog(campus, state, save, floor_select, room_list, render_p
             level = int(level_input.value if level_input.value is not None else default_level)
 
             if clone_select.value and clone_select.value != "__none__":
-                from model import Building, Floor
                 source_floor = next((f for f in building.floors if f.id == clone_select.value), None)
                 if source_floor is None or not source_floor.polygon:
                     ui.notify("Impossible de copier ce contour", color="warning")

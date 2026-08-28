@@ -192,15 +192,22 @@ positionnement. Côté campus-v2 :
 
 ### État du découpage UI
 
-Le paquet `ui/` est en cours de scission depuis `views.py` (voir la roadmap
-ci-dessous) : `ui/campus_overview_view.py` est bien branché, mais
-`ui/roommanagers_view.py` (duplicata non utilisé de `open_gestionnaires_dialog`)
-et `ui/roomtable_view.py` (fichier vide) ne sont importés nulle part — à
-finir ou supprimer avant que d'autres n'y touchent par erreur.
+Le paquet `ui/` est en cours de scission depuis `views.py`.
+`ui/campus_overview_view.py` est bien branché ; les ébauches mortes
+(`roommanagers_view.py` et `validatedata_view.py`, duplicatas jamais importés
+de `open_gestionnaires_dialog` / `open_validation_dialog`, et le fichier vide
+`roomtable_view.py`) ont été supprimées. La scission reste donc à faire à
+partir de `views.py`, qui porte encore les quatre dialogues.
+
+À noter : `ui/views.py` importe `_read_uploaded_file` depuis `campus_app.py`,
+qui importe lui-même `ui/views.py` — un cycle qui ne tient qu'à la position
+de ce helper au milieu du bloc d'imports. Ce helper devrait descendre dans un
+module neutre quand la scission des vues sera reprise.
 
 ## Roadmap / idées
 
-- [ ] Nettoyer le code redondant après modularisation
+- [x] Nettoyer le code redondant après modularisation
+- [ ] Casser le cycle `campus_app` ↔ `ui/views` (helper `_read_uploaded_file`)
 - [ ] Eclater les vues vers des fichiers dédiés.
 
 #### Idées

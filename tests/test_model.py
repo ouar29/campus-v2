@@ -1,7 +1,7 @@
 from datetime import date
 import asyncio
 
-from model import Campus, Building, Floor, Room
+from model import Campus
 from rendering import campus_map_parts
 from campus_app import _read_uploaded_file
 from export_cps import export_campus

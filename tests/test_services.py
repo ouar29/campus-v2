@@ -1,3 +1,5 @@
+import pytest
+
 from model import Campus
 from services.campus_service import CampusService
 from services.floor_service import FloorService
@@ -25,11 +27,8 @@ def test_floor_service_create_floor_validates_polygon():
     assert floor.level == 0
     assert len(building.floors) == 1
 
-    try:
+    with pytest.raises(ValueError):
         service.create_floor(building, "Erreur", [[0.0, 0.0], [1.0, 1.0]], level=1)
-        assert False, "Une ValueError devait être levée"
-    except ValueError:
-        pass
 
 
 def test_room_service_create_room_and_validates_capacity():
@@ -45,8 +44,5 @@ def test_room_service_create_room_and_validates_capacity():
     assert room.position == [1.5, 1.5]
     assert len(floor.rooms) == 1
 
-    try:
+    with pytest.raises(ValueError):
         service.create_room(floor, "Salle invalide", 0, [0.0, 0.0])
-        assert False, "Une ValueError devait être levée"
-    except ValueError:
-        pass

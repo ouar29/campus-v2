@@ -5,7 +5,6 @@ l’application. Le point d’entrée reste volontairement minimal dans main.py.
 """
 from __future__ import annotations
 
-import base64
 import json
 import shutil
 import uuid
@@ -32,21 +31,20 @@ async def _read_uploaded_file(event) -> tuple[str, bytes] | None:
         data = await data
     return file_name, bytes(data)
 from geometry import (
+    DEFAULT_CANVAS_H,
+    DEFAULT_CANVAS_W,
     DRAG_THRESHOLD_UNITS,
     EDGE_INSERT_THRESHOLD,
+    PADDING,
     VERTEX_DRAG_THRESHOLD,
-    campus_transform,
-    building_footprint,
     nearest_edge_insertion,
     nearest_vertex,
     px_to_world,
     transform_for_floor,
 )
-from iso_view import build_overview_parts
-from model import Building, Campus, Floor, Room
+from model import Building, Campus, Floor
 from rendering import (
     blank_background,
-    campus_map_parts,
     drawing_preview_content,
     floor_edit_content,
     floor_plan_content,
@@ -66,19 +64,6 @@ from ui.views import (
     open_room_table_dialog
 )
 from ui.campus_overview_view import open_overview_dialog
-
-PADDING = 2.0
-SCALE = 20
-ROOM_RADIUS_UNITS = 1.0
-DRAG_THRESHOLD_UNITS = 1.5
-DEFAULT_CANVAS_W = 50.0
-DEFAULT_CANVAS_H = 30.0
-
-CAMPUS_ICON_SIZE = 8.0
-CAMPUS_PADDING = 15.0
-
-VERTEX_DRAG_THRESHOLD = 1.2
-EDGE_INSERT_THRESHOLD = 0.9
 
 def get_resource_path(relative_path: str) -> Path:
     """Obtient le chemin absolu vers une ressource, fonctionne en dev et avec PyInstaller."""
@@ -587,7 +572,7 @@ class CampusApp:
     def import_cps_dialog(self) -> None:
         with ui.dialog() as dialog, ui.card().classes("w-[420px] max-w-[90vw]"):
             ui.label("Importer un campus depuis un fichier .cps").classes("text-lg font-semibold mb-2")
-            upload = ui.upload(
+            ui.upload(
                 label="Choisir un fichier .cps",
                 auto_upload=True,
                 on_upload=lambda e: self._on_cps_import(e, dialog),
