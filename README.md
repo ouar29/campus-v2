@@ -39,6 +39,7 @@ flowchart TB
         views["ui/views.py<br/>dialogues : Toutes les salles,<br/>Gestionnaires, Plan du campus"]
         dialogs["ui/dialogs.py<br/>dialogues : nouveau bâtiment / étage / salle"]
         overview["ui/campus_overview_view.py<br/>vue d'ensemble isométrique"]
+        uploads["ui/uploads.py<br/>lecture des fichiers déposés"]
     end
 
     subgraph Domaine["Logique métier"]
@@ -66,6 +67,7 @@ flowchart TB
     end
 
     campus_app --> layout & views & dialogs & overview
+    campus_app & views --> uploads
     views --> controller
     dialogs --> campus_app
     campus_app --> controller
@@ -199,15 +201,19 @@ de `open_gestionnaires_dialog` / `open_validation_dialog`, et le fichier vide
 `roomtable_view.py`) ont été supprimées. La scission reste donc à faire à
 partir de `views.py`, qui porte encore les quatre dialogues.
 
-À noter : `ui/views.py` importe `_read_uploaded_file` depuis `campus_app.py`,
-qui importe lui-même `ui/views.py` — un cycle qui ne tient qu'à la position
-de ce helper au milieu du bloc d'imports. Ce helper devrait descendre dans un
-module neutre quand la scission des vues sera reprise.
+Le paquet ne contient plus de cycle d'imports : `ui/views.py` importait
+`_read_uploaded_file` depuis `campus_app.py`, qui importe lui-même
+`ui/views.py`. Ça ne tenait qu'à la position de ce helper *au milieu* du bloc
+d'imports de `campus_app.py`. Il vit désormais dans `ui/uploads.py`, module
+neutre qui ne dépend ni de `campus_app` ni des vues, et s'appelle
+`read_uploaded_file` (plus de préfixe `_` : il est partagé, donc public).
+**Aucun module de `ui/` ne doit importer `campus_app`** — c'est ce qui permet
+de découper les vues librement.
 
 ## Roadmap / idées
 
 - [x] Nettoyer le code redondant après modularisation
-- [ ] Casser le cycle `campus_app` ↔ `ui/views` (helper `_read_uploaded_file`)
+- [x] Casser le cycle `campus_app` ↔ `ui/views` (helper `read_uploaded_file`)
 - [ ] Eclater les vues vers des fichiers dédiés.
 
 #### Idées

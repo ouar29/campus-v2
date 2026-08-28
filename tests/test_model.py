@@ -3,7 +3,7 @@ import asyncio
 
 from model import Campus
 from rendering import campus_map_parts
-from campus_app import _read_uploaded_file
+from ui.uploads import read_uploaded_file
 from export_cps import export_campus
 
 
@@ -36,7 +36,7 @@ def test_campus_map_preview_renders_without_error():
 def test_read_uploaded_file_handles_nicegui_upload_event():
     event = FakeUploadEvent("campus.cps", b'{"name": "Test"}')
 
-    result = asyncio.run(_read_uploaded_file(event))
+    result = asyncio.run(read_uploaded_file(event))
 
     assert result is not None
     assert result[0] == "campus.cps"

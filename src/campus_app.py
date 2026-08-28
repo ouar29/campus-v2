@@ -17,19 +17,6 @@ from nicegui import events, native, ui
 from controller import CampusController
 from export_cps import export_campus
 from import_cps import convert as convert_cps
-
-async def _read_uploaded_file(event) -> tuple[str, bytes] | None:
-    file = getattr(event, "file", None)
-    if file is None:
-        return None
-    file_name = getattr(file, "name", "") or "campus.cps"
-    try:
-        data = file.read()
-    except TypeError:
-        return None
-    if hasattr(data, "__await__"):
-        data = await data
-    return file_name, bytes(data)
 from geometry import (
     DEFAULT_CANVAS_H,
     DEFAULT_CANVAS_W,
@@ -57,6 +44,7 @@ from ui.dialogs import (
 )
 from ui.layout import build_header, build_sidebar, build_main_area
 from ui.theme import apply_theme
+from ui.uploads import read_uploaded_file
 from ui.views import (
     open_campus_map_dialog,
     open_gestionnaires_dialog,
@@ -64,6 +52,7 @@ from ui.views import (
     open_room_table_dialog
 )
 from ui.campus_overview_view import open_overview_dialog
+
 
 def get_resource_path(relative_path: str) -> Path:
     """Obtient le chemin absolu vers une ressource, fonctionne en dev et avec PyInstaller."""
@@ -581,7 +570,7 @@ class CampusApp:
         dialog.open()
 
     async def _on_cps_import(self, event, dialog) -> None:
-        payload = await _read_uploaded_file(event)
+        payload = await read_uploaded_file(event)
         if payload is None:
             ui.notify("Aucun fichier reçu pour l’import .cps", color="negative")
             return

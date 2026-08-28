@@ -5,7 +5,7 @@ from nicegui import ui
 from model import Building, Floor, Gestionnaire, Room
 from rendering import campus_map_parts
 from schema_validation import validate_campus_bytes
-from campus_app import _read_uploaded_file
+from ui.uploads import read_uploaded_file
 
 
 def open_campus_map_dialog(app) -> None:
@@ -301,7 +301,7 @@ def open_validation_dialog(_event=None) -> None:
 
         async def handle_upload(event) -> None:
             result_container.clear()
-            read = await _read_uploaded_file(event)
+            read = await read_uploaded_file(event)
             if read is None:
                 ui.notify("Impossible de lire le fichier", type="negative")
                 return
