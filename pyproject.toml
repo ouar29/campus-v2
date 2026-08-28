@@ -19,7 +19,25 @@ dependencies = [
 dev = [
     "pyinstaller>=6.10",
     "pytest>=8.0",
+    "ruff>=0.16,<0.17",
 ]
 
 [tool.uv]
 package = false
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+extend-exclude = ["build", "dist", ".venv"]
+
+[tool.ruff.lint]
+# E4/E7/E9 + F : le défaut de ruff (imports et variables morts, erreurs de
+# syntaxe/logique). B (flake8-bugbear) attrape en plus les pièges silencieux
+# qui nous avaient déjà mordus : `assert False` supprimé par `python -O`,
+# `raise` sans `from` qui masque la cause d'origine.
+select = ["E4", "E7", "E9", "F", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# Les vues NiceGUI construisent l'UI par effet de bord : des widgets sont
+# créés sans que la valeur retournée soit réutilisée.
+"src/ui/*.py" = ["B008"]

@@ -25,6 +25,16 @@ Tests (config `pythonpath = src` dans `pytest.ini`) :
 uv run pytest
 ```
 
+Lint (config dans `[tool.ruff]` de `pyproject.toml`) :
+
+```bash
+uv run ruff check .          # uv run ruff check --fix .  pour corriger
+```
+
+En plus des règles par défaut, `B` (bugbear) est activé : il attrape les
+pièges silencieux comme `assert False` (supprimé par `python -O`) ou un
+`raise` sans `from` qui masque la cause d'origine.
+
 Le serveur NiceGUI est lancé avec `reload=False` (voir le commentaire dans
 `campus_app.main()`) : un process déjà démarré ne recharge jamais le code
 modifié, il faut l'arrêter et le relancer après un changement.
