@@ -1,9 +1,9 @@
 """Lecture des fichiers déposés via `ui.upload` de NiceGUI.
 
 Module volontairement neutre : il ne dépend ni de `campus_app`, ni des vues.
-C'est ce qui permet à `campus_app.py` et à `ui/views.py` de partager ce
-helper sans créer de cycle d'imports entre eux (`ui/views` importait
-auparavant `campus_app`, qui importe `ui/views`).
+C'est ce qui permet à `campus_app.py` et aux vues de partager ce helper sans
+créer de cycle d'imports entre eux (l'ancien `ui/views.py` importait
+`campus_app`, qui l'importait en retour).
 """
 from __future__ import annotations
 

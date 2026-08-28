@@ -46,10 +46,16 @@ flowchart TB
     subgraph UI["Interface — NiceGUI"]
         campus_app["campus_app.py<br/>CampusApp : composition, état UI,<br/>plan interactif (on_mouse)"]
         layout["ui/layout.py<br/>en-tête, barre latérale"]
-        views["ui/views.py<br/>dialogues : Toutes les salles,<br/>Gestionnaires, Plan du campus"]
         dialogs["ui/dialogs.py<br/>dialogues : nouveau bâtiment / étage / salle"]
-        overview["ui/campus_overview_view.py<br/>vue d'ensemble isométrique"]
         uploads["ui/uploads.py<br/>lecture des fichiers déposés"]
+        subgraph Vues["Vues — un dialogue par module"]
+            room_table["ui/room_table_view.py<br/>Toutes les salles"]
+            room_details["ui/room_details_view.py<br/>fiche détaillée d'une salle"]
+            gestionnaires["ui/gestionnaires_view.py<br/>annuaire des gestionnaires"]
+            campus_map["ui/campus_map_view.py<br/>Plan du campus (positions)"]
+            overview["ui/campus_overview_view.py<br/>vue d'ensemble isométrique"]
+            validation["ui/validation_view.py<br/>valider un .cps"]
+        end
     end
 
     subgraph Domaine["Logique métier"]
@@ -76,9 +82,10 @@ flowchart TB
         cps[(".cps<br/>format externe")]
     end
 
-    campus_app --> layout & views & dialogs & overview
-    campus_app & views --> uploads
-    views --> controller
+    campus_app --> layout & dialogs & Vues
+    campus_app & validation --> uploads
+    room_table --> room_details
+    Vues --> controller
     dialogs --> campus_app
     campus_app --> controller
     controller --> services --> model
@@ -202,29 +209,36 @@ positionnement. Côté campus-v2 :
 - `export_cps.py` exclut ce bâtiment placeholder de tout export, pour ne
   jamais propager de salles sans géométrie réelle vers le format externe.
 
-### État du découpage UI
+### Découpage du paquet `ui/`
 
-Le paquet `ui/` est en cours de scission depuis `views.py`.
-`ui/campus_overview_view.py` est bien branché ; les ébauches mortes
-(`roommanagers_view.py` et `validatedata_view.py`, duplicatas jamais importés
-de `open_gestionnaires_dialog` / `open_validation_dialog`, et le fichier vide
-`roomtable_view.py`) ont été supprimées. La scission reste donc à faire à
-partir de `views.py`, qui porte encore les quatre dialogues.
+**Un dialogue = un module**, nommé `*_view.py`. L'ancien `views.py`, qui
+portait quatre dialogues sur 449 lignes, a été éclaté en
+`room_table_view.py`, `gestionnaires_view.py`, `campus_map_view.py` et
+`validation_view.py`. La fiche détaillée d'une salle, imbriquée dans la table
+des salles alors qu'elle en représentait plus de la moitié, vit dans son
+propre `room_details_view.py` : elle reçoit un callback `on_change` au lieu
+de capturer le `rows_view` de l'appelant, ce qui la rend ouvrable depuis
+n'importe quelle liste.
 
-Le paquet ne contient plus de cycle d'imports : `ui/views.py` importait
-`_read_uploaded_file` depuis `campus_app.py`, qui importe lui-même
-`ui/views.py`. Ça ne tenait qu'à la position de ce helper *au milieu* du bloc
-d'imports de `campus_app.py`. Il vit désormais dans `ui/uploads.py`, module
-neutre qui ne dépend ni de `campus_app` ni des vues, et s'appelle
-`read_uploaded_file` (plus de préfixe `_` : il est partagé, donc public).
-**Aucun module de `ui/` ne doit importer `campus_app`** — c'est ce qui permet
-de découper les vues librement.
+Deux règles maintiennent ce découpage praticable :
+
+- **Aucun module de `ui/` n'importe `campus_app`.** Les vues reçoivent l'objet
+  `app` en paramètre et passent par `app.controller`. C'est ce qui a permis
+  l'éclatement : `views.py` importait auparavant `_read_uploaded_file` depuis
+  `campus_app`, qui l'importait en retour, cycle qui ne tenait qu'à la
+  position de ce helper au milieu du bloc d'imports. Il vit maintenant dans
+  `ui/uploads.py`, module neutre, sous le nom `read_uploaded_file` (sans
+  préfixe `_` : partagé, donc public).
+- **Les vues ne sont pas couvertes par les tests** (NiceGUI construit l'UI par
+  effet de bord). Après un remaniement, le filet de sécurité est de lancer
+  l'appli et d'ouvrir chaque dialogue — une page de test qui les construit
+  tous suffit à détecter les erreurs de construction.
 
 ## Roadmap / idées
 
 - [x] Nettoyer le code redondant après modularisation
 - [x] Casser le cycle `campus_app` ↔ `ui/views` (helper `read_uploaded_file`)
-- [ ] Eclater les vues vers des fichiers dédiés.
+- [x] Eclater les vues vers des fichiers dédiés
 
 #### Idées
 

@@ -45,13 +45,11 @@ from ui.dialogs import (
 from ui.layout import build_header, build_sidebar, build_main_area
 from ui.theme import apply_theme
 from ui.uploads import read_uploaded_file
-from ui.views import (
-    open_campus_map_dialog,
-    open_gestionnaires_dialog,
-    open_validation_dialog,
-    open_room_table_dialog
-)
+from ui.campus_map_view import open_campus_map_dialog
 from ui.campus_overview_view import open_overview_dialog
+from ui.gestionnaires_view import open_gestionnaires_dialog
+from ui.room_table_view import open_room_table_dialog
+from ui.validation_view import open_validation_dialog
 
 
 def get_resource_path(relative_path: str) -> Path:
