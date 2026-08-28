@@ -12,6 +12,18 @@ import math
 import uuid
 
 from model import Campus
+from theme import (
+    ISO_BG,
+    ISO_GRID_AXIS_COLOR,
+    ISO_GRID_COLOR,
+    ISO_LABEL_HALO,
+    ISO_PALETTE,
+    OUTLINE_DARK,
+    TEXT_MUTED,
+    TEXT_PRIMARY,
+    THEME_DARK,
+    THEME_PRIMARY,
+)
 
 ISO_COS30 = math.cos(math.radians(30))
 ISO_SIN30 = math.sin(math.radians(30))
@@ -25,11 +37,6 @@ OVERVIEW_SCALE = 16       # pixels par unité monde
 MARGIN_PX = 50            # marge serrée autour des bâtiments pour le cadrage initial (focus)
 GRID_SPACING = 10.0       # espacement (unités monde) de la grille au sol
 GRID_CANVAS_PADDING = 500 # marge supplémentaire (px) pour que la grille déborde largement des bâtiments (pan)
-GRID_COLOR = "#4338ca"     # indigo-700, grille discrète sur fond sombre
-GRID_AXIS_COLOR = "#a5b4fc"  # indigo-300, axes principaux (plus visibles)
-
-PALETTE = ["#93c5fd", "#86efac", "#fca5a5", "#fcd34d", "#c4b5fd", "#67e8f9", "#fdba74"]
-
 
 def _darken(hex_color: str, factor: float = 0.72) -> str:
     hex_color = hex_color.lstrip("#")
@@ -109,14 +116,14 @@ def _ground_grid_svg(screen_x_range: tuple[float, float], screen_y_range: tuple[
     while x <= x1:
         p1, p2 = _iso(x, y0, 0, angle_deg), _iso(x, y1, 0, angle_deg)
         is_axis = abs(x) < 1e-6
-        color, width, opacity = (GRID_AXIS_COLOR, 1.4, 0.7) if is_axis else (GRID_COLOR, 0.6, 0.35)
+        color, width, opacity = (ISO_GRID_AXIS_COLOR, 1.4, 0.7) if is_axis else (ISO_GRID_COLOR, 0.6, 0.35)
         lines.append(f'<line x1="{p1[0]}" y1="{p1[1]}" x2="{p2[0]}" y2="{p2[1]}" stroke="{color}" stroke-width="{width}" opacity="{opacity}"/>')
         x += GRID_SPACING
     y = y0
     while y <= y1:
         p1, p2 = _iso(x0, y, 0, angle_deg), _iso(x1, y, 0, angle_deg)
         is_axis = abs(y) < 1e-6
-        color, width, opacity = (GRID_AXIS_COLOR, 1.4, 0.7) if is_axis else (GRID_COLOR, 0.6, 0.35)
+        color, width, opacity = (ISO_GRID_AXIS_COLOR, 1.4, 0.7) if is_axis else (ISO_GRID_COLOR, 0.6, 0.35)
         lines.append(f'<line x1="{p1[0]}" y1="{p1[1]}" x2="{p2[0]}" y2="{p2[1]}" stroke="{color}" stroke-width="{width}" opacity="{opacity}"/>')
         y += GRID_SPACING
 
@@ -246,7 +253,7 @@ def _build_overview(campus: Campus, angle_deg: float = 0.0) -> tuple[str, float,
 
     for building in campus.buildings:
         bx, by = building_positions[building.id]
-        color = PALETTE[hash(building.id) % len(PALETTE)]
+        color = ISO_PALETTE[hash(building.id) % len(ISO_PALETTE)]
         wall_color = _darken(color)
 
         for floor in building.floors:
@@ -268,7 +275,7 @@ def _build_overview(campus: Campus, angle_deg: float = 0.0) -> tuple[str, float,
                 quad = f"{p1_bot[0]},{p1_bot[1]} {p2_bot[0]},{p2_bot[1]} {p2_top[0]},{p2_top[1]} {p1_top[0]},{p1_top[1]}"
                 elements.append(
                     f'<polygon points="{quad}" fill="{wall_color}" fill-opacity="{WALL_OPACITY}" '
-                    f'stroke="#1f2937" stroke-width="0.5"/>'
+                    f'stroke="{OUTLINE_DARK}" stroke-width="0.5"/>'
                 )
 
             # Face supérieure (dalle de l'étage)
@@ -276,7 +283,7 @@ def _build_overview(campus: Campus, angle_deg: float = 0.0) -> tuple[str, float,
             top_points = " ".join(f"{px},{py}" for px, py in top_proj)
             elements.append(
                 f'<polygon points="{top_points}" fill="{color}" fill-opacity="{TOP_FACE_OPACITY}" '
-                f'stroke="#1f2937" stroke-width="0.8">'
+                f'stroke="{OUTLINE_DARK}" stroke-width="0.8">'
                 f'<title>{building.name} — {floor.name} ({len(floor.rooms)} salle(s)){level_tag}</title></polygon>'
             )
 
@@ -285,8 +292,8 @@ def _build_overview(campus: Campus, angle_deg: float = 0.0) -> tuple[str, float,
             cy = sum(p[1] for p in top_proj) / n
             elements.append(
                 f'<text x="{cx}" y="{cy}" font-size="24" text-anchor="middle" '
-                f'dominant-baseline="middle" fill="#eef2ff" font-weight="700" paint-order="stroke" '
-                f'stroke="#1e1b4b" stroke-width="4" stroke-linejoin="round">{floor.name}</text>'
+                f'dominant-baseline="middle" fill="{TEXT_PRIMARY}" font-weight="700" paint-order="stroke" '
+                f'stroke="{ISO_LABEL_HALO}" stroke-width="4" stroke-linejoin="round">{floor.name}</text>'
             )
 
         # Étiquette bâtiment, bien visible sous la base du rez-de-chaussée
@@ -295,14 +302,14 @@ def _build_overview(campus: Campus, angle_deg: float = 0.0) -> tuple[str, float,
         record(base_x, base_y + 42)
         elements.append(
             f'<text x="{base_x}" y="{base_y + 34}" font-size="24" text-anchor="middle" '
-            f'fill="#eef2ff" font-weight="700" paint-order="stroke" stroke="#1e1b4b" stroke-width="5" '
+            f'fill="{TEXT_PRIMARY}" font-weight="700" paint-order="stroke" stroke="{ISO_LABEL_HALO}" stroke-width="5" '
             f'stroke-linejoin="round">{building.name}</text>'
         )
 
     if not all_x:
         empty_svg = (
             '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="120">'
-            '<text x="20" y="60" font-size="14" fill="#64748b">Aucun bâtiment à afficher.</text></svg>'
+            f'<text x="20" y="60" font-size="14" fill="{TEXT_MUTED}">Aucun bâtiment à afficher.</text></svg>'
         )
         return empty_svg, 400.0, 120.0
 
@@ -328,7 +335,7 @@ def _build_overview(campus: Campus, angle_deg: float = 0.0) -> tuple[str, float,
     initial_view_box = f"{GRID_CANVAS_PADDING} {GRID_CANVAS_PADDING} {focus_width} {focus_height}"
     svg = (
         f'<svg width="{width}" height="{height}" viewBox="{initial_view_box}" '
-        f'xmlns="http://www.w3.org/2000/svg" style="display:block; width:100%; height:100%; background:#1e1b4b;">'
+        f'xmlns="http://www.w3.org/2000/svg" style="display:block; width:100%; height:100%; background:{ISO_BG};">'
         f'<g transform="translate({offset_x},{offset_y})">{body}</g>'
         f"</svg>"
     )
@@ -366,14 +373,14 @@ def build_overview_parts(campus: Campus, angle_deg: float = 0.0) -> tuple[str, s
 
     html = f"""
     <div id="iso-wrap-{uid}" style="width:100%; height:100%; min-height:70vh; overflow:hidden;
-         position:relative; background:#1e1b4b; cursor:grab; border-radius:8px;">
+         position:relative; background:{ISO_BG}; cursor:grab; border-radius:8px;">
       <div style="position:absolute; top:8px; right:8px; z-index:10; display:flex; flex-direction:column; gap:4px;">
         <button onclick="window.isoZoom_{uid} && window.isoZoom_{uid}(1.25)"
-                style="width:34px;height:34px;border-radius:6px;border:1px solid #6366f1;background:#312e81;color:#eef2ff;cursor:pointer;font-size:18px;">+</button>
+                style="width:34px;height:34px;border-radius:6px;border:1px solid {THEME_PRIMARY};background:{THEME_DARK};color:{TEXT_PRIMARY};cursor:pointer;font-size:18px;">+</button>
         <button onclick="window.isoZoom_{uid} && window.isoZoom_{uid}(0.8)"
-                style="width:34px;height:34px;border-radius:6px;border:1px solid #6366f1;background:#312e81;color:#eef2ff;cursor:pointer;font-size:18px;">&minus;</button>
+                style="width:34px;height:34px;border-radius:6px;border:1px solid {THEME_PRIMARY};background:{THEME_DARK};color:{TEXT_PRIMARY};cursor:pointer;font-size:18px;">&minus;</button>
         <button onclick="window.isoReset_{uid} && window.isoReset_{uid}()"
-                style="width:34px;height:34px;border-radius:6px;border:1px solid #6366f1;background:#312e81;color:#eef2ff;cursor:pointer;font-size:14px;">&#8635;</button>
+                style="width:34px;height:34px;border-radius:6px;border:1px solid {THEME_PRIMARY};background:{THEME_DARK};color:{TEXT_PRIMARY};cursor:pointer;font-size:14px;">&#8635;</button>
       </div>
       {svg_content}
     </div>

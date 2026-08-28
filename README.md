@@ -51,6 +51,7 @@ flowchart TB
         rendering["rendering.py<br/>génère le SVG (salles, contours, grille)"]
         geometry["geometry.py<br/>repères monde ↔ pixels, distances"]
         iso_view["iso_view.py<br/>vue isométrique (lecture seule)"]
+        theme["theme.py<br/>palette (source unique des couleurs)"]
     end
 
     subgraph Interop["Interopérabilité .cps"]
@@ -71,6 +72,8 @@ flowchart TB
     controller --> services --> model
     campus_app --> rendering --> geometry
     overview --> iso_view --> model
+    rendering & iso_view --> theme
+    campus_app -->|"ui/theme.apply_theme()"| theme
     model <--> datajson
     import_cps --> model --> export_cps
     cps --> import_cps
@@ -97,6 +100,14 @@ Points clés :
 - **`rendering.py` / `geometry.py`** transforment le modèle en SVG (le plan
   affiché est une image SVG encodée en data URI, redessinée à chaque
   interaction) ; ils ne modifient jamais le modèle.
+- **`theme.py` est la source unique des couleurs.** Il est volontairement
+  sans dépendance à NiceGUI, pour être importable par la couche de rendu SVG
+  (`rendering.py`, `iso_view.py`) autant que par `ui/theme.py`, qui se limite
+  à pousser la palette dans le thème Quasar via `apply_theme()`. Toute
+  nouvelle couleur s'ajoute là plutôt qu'en dur dans un f-string SVG.
+  Attention : les couleurs injectées dans du SVG/HTML le sont par
+  interpolation de f-string — une chaîne portant un `{NOM}` doit bien avoir
+  son préfixe `f`, sinon le placeholder ressort littéralement dans la page.
 
 ### Modèle de données
 

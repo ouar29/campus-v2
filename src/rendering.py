@@ -5,23 +5,26 @@ import uuid
 
 from model import Campus, Floor, Room
 from geometry import PLAN_DISPLAY_WIDTH_PX, SCALE, building_footprint, world_to_px
-
-CANVAS_BG = "#211d55"
-CANVAS_STROKE = "#4338ca"
-FLOOR_FILL = "#3730a3"
-FLOOR_STROKE = "#a5b4fc"
-GRID_LINE_COLOR = "#4338ca"
-TEXT_PRIMARY = "#eef2ff"
-TEXT_SECONDARY = "#c7d2fe"
-PALETTE = [
-    "#60a5fa",
-    "#f59e0b",
-    "#34d399",
-    "#f472b6",
-    "#a78bfa",
-    "#f87171",
-    "#2dd4bf",
-]
+from theme import (
+    CANVAS_BG,
+    CANVAS_STROKE,
+    DRAW_FIRST_VERTEX_COLOR,
+    DRAW_LINE_COLOR,
+    FLOOR_FILL,
+    FLOOR_STROKE,
+    GRID_LINE_COLOR,
+    OUTLINE_DARK,
+    PLAN_PALETTE,
+    ROOM_FILL,
+    ROOM_STROKE,
+    ROOM_UNAVAILABLE_FILL,
+    ROOM_UNAVAILABLE_STROKE,
+    TEXT_PRIMARY,
+    TEXT_SECONDARY,
+    TEXT_SHADOW_COLOR,
+    VERTEX_FILL,
+    VERTEX_STROKE,
+)
 
 
 def text_scale_for_canvas(w_units: float) -> float:
@@ -78,11 +81,11 @@ def room_svg(room: Room, origin_x: float, origin_y: float, text_scale: float = 1
     gap_below = 26 * text_scale
     is_unavailable = not room.extra.get("available", True)
     if is_unavailable:
-        fill, fill_opacity, stroke, dash = "#6b7280", "0.6", "#ef4444", ' stroke-dasharray="4,3"'
+        fill, fill_opacity, stroke, dash = ROOM_UNAVAILABLE_FILL, "0.6", ROOM_UNAVAILABLE_STROKE, ' stroke-dasharray="4,3"'
         name_fill = TEXT_SECONDARY
         title_suffix = " (indisponible)"
     else:
-        fill, fill_opacity, stroke, dash = "#93c5fd", "0.9", "#1d4ed8", ""
+        fill, fill_opacity, stroke, dash = ROOM_FILL, "0.9", ROOM_STROKE, ""
         name_fill = TEXT_PRIMARY
         title_suffix = ""
     return (
@@ -108,10 +111,10 @@ def drawing_preview_content(points: list[list[float]], origin_x: float, origin_y
     if points:
         px_points = [world_to_px(x, y, origin_x, origin_y) for x, y in points]
         line_points = " ".join(f"{px},{py}" for px, py in px_points)
-        parts.append(f'<polyline points="{line_points}" fill="none" stroke="#1d4ed8" stroke-width="2" stroke-dasharray="6,4"/>')
+        parts.append(f'<polyline points="{line_points}" fill="none" stroke="{DRAW_LINE_COLOR}" stroke-width="2" stroke-dasharray="6,4"/>')
         for i, (px, py) in enumerate(px_points):
             radius = 6 if i == 0 else 5
-            fill = "#dc2626" if i == 0 else "#1d4ed8"
+            fill = DRAW_FIRST_VERTEX_COLOR if i == 0 else DRAW_LINE_COLOR
             parts.append(f'<circle cx="{px}" cy="{py}" r="{radius}" fill="{fill}"/>')
     return "".join(parts)
 
@@ -119,9 +122,9 @@ def drawing_preview_content(points: list[list[float]], origin_x: float, origin_y
 def floor_edit_content(floor: Floor, origin_x: float, origin_y: float, text_scale: float = 1.0) -> str:
     """Plan de l'étage avec poignées de sommets pour l'édition du contour."""
     parts = [floor_plan_content(floor, origin_x, origin_y, text_scale)]
-    for i, (x, y) in enumerate(floor.polygon):
+    for x, y in floor.polygon:
         px, py = world_to_px(x, y, origin_x, origin_y)
-        parts.append(f'<circle cx="{px}" cy="{py}" r="7" fill="#f59e0b" stroke="#78350f" stroke-width="2"/>')
+        parts.append(f'<circle cx="{px}" cy="{py}" r="7" fill="{VERTEX_FILL}" stroke="{VERTEX_STROKE}" stroke-width="2"/>')
     return "".join(parts)
 
 
@@ -133,11 +136,11 @@ def campus_map_shapes_svg(campus: Campus, origin_x: float, origin_y: float) -> s
     parts = []
     for building in campus.buildings:
         footprint = building_footprint(building)
-        color = PALETTE[hash(building.id) % len(PALETTE)]
+        color = PLAN_PALETTE[hash(building.id) % len(PLAN_PALETTE)]
         pts_px = [world_to_px(x, y, origin_x, origin_y) for x, y in footprint]
         points_str = " ".join(f"{px},{py}" for px, py in pts_px)
         parts.append(
-            f'<polygon points="{points_str}" fill="{color}" fill-opacity="0.85" stroke="#1f2937" stroke-width="2">'
+            f'<polygon points="{points_str}" fill="{color}" fill-opacity="0.85" stroke="{OUTLINE_DARK}" stroke-width="2">'
             f'<title>{building.name} ({len(building.floors)} étage(s))</title></polygon>'
         )
     return "".join(parts)
@@ -221,7 +224,7 @@ def campus_map_parts(campus: Campus) -> tuple[str, str]:
                 div.style.fontSize = "24px";
                 div.style.fontWeight = "700";
                 div.style.color = "{TEXT_PRIMARY}";
-                div.style.textShadow = "0 0 4px #0f0e2a, 0 0 6px #0f0e2a, 0 0 8px #0f0e2a";
+                div.style.textShadow = "0 0 4px {TEXT_SHADOW_COLOR}, 0 0 6px {TEXT_SHADOW_COLOR}, 0 0 8px {TEXT_SHADOW_COLOR}";
                 div.style.whiteSpace = "nowrap";
                 layer.appendChild(div);
             }});

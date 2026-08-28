@@ -42,7 +42,7 @@ from geometry import (
     px_to_world,
     transform_for_floor,
 )
-from iso_view import PALETTE, build_overview_parts
+from iso_view import build_overview_parts
 from model import Building, Campus, Floor, Room
 from rendering import (
     blank_background,
@@ -66,20 +66,6 @@ from ui.views import (
     open_room_table_dialog
 )
 from ui.campus_overview_view import open_overview_dialog
-
-THEME_PRIMARY = "#6366f1"
-THEME_SECONDARY = "#4f46e5"
-THEME_ACCENT = "#818cf8"
-THEME_DARK = "#312e81"
-THEME_DARK_PAGE = "#1e1b4b"
-
-CANVAS_BG = "#211d55"
-CANVAS_STROKE = "#4338ca"
-FLOOR_FILL = "#3730a3"
-FLOOR_STROKE = "#a5b4fc"
-GRID_LINE_COLOR = "#4338ca"
-TEXT_PRIMARY = "#eef2ff"
-TEXT_SECONDARY = "#c7d2fe"
 
 PADDING = 2.0
 SCALE = 20
