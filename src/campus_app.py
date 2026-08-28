@@ -70,6 +70,13 @@ APP_AUTHOR = "CampusAdmin"  # à adapter au nom de ton organisation si besoin
 DEFAULT_CAMPUS_TEMPLATE = {"id": "campus-default", "name": "Campus", "buildings": [], "extra": {}}
 
 
+def write_default_campus(path: Path) -> None:
+    """Écrit un campus vide à `path`, dans le format attendu par `Campus.load`."""
+    path.write_text(
+        json.dumps(DEFAULT_CAMPUS_TEMPLATE, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+
 def get_data_path() -> Path:
     """Retourne le chemin du data.json à utiliser pour la lecture/écriture.
 
@@ -86,7 +93,17 @@ def get_data_path() -> Path:
     embarqué au tout premier lancement s'il n'existe pas encore.
     """
     if not getattr(sys, "frozen", False):
-        return get_resource_path("src/data.json")
+        dev_path = get_resource_path("src/data.json")
+        if not dev_path.exists():
+            # Ce fichier est versionné dans le dépôt : son absence signale
+            # une suppression accidentelle. On repart d'un campus vide
+            # plutôt que de laisser remonter une FileNotFoundError. La page
+            # étant construite à chaque requête (voir main()), cette erreur
+            # ne se verrait qu'en HTTP 500 dans le navigateur, sans rien
+            # dans le terminal — d'où le message ci-dessous.
+            print(f"{dev_path} introuvable — création d'un campus vide.", file=sys.stderr)
+            write_default_campus(dev_path)
+        return dev_path
 
     user_dir = Path(platformdirs.user_data_dir(APP_NAME, APP_AUTHOR))
     user_dir.mkdir(parents=True, exist_ok=True)
@@ -100,9 +117,7 @@ def get_data_path() -> Path:
             # Pas de data.json embarqué (ne devrait pas arriver si le build
             # inclut bien --add-data pour src/data.json) : on démarre à vide
             # plutôt que de planter.
-            user_data_path.write_text(
-                json.dumps(DEFAULT_CAMPUS_TEMPLATE, indent=2, ensure_ascii=False), encoding="utf-8"
-            )
+            write_default_campus(user_data_path)
     return user_data_path
 
 

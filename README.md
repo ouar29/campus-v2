@@ -39,6 +39,12 @@ Le serveur NiceGUI est lancé avec `reload=False` (voir le commentaire dans
 `campus_app.main()`) : un process déjà démarré ne recharge jamais le code
 modifié, il faut l'arrêter et le relancer après un changement.
 
+`src/data.json` est versionné dans le dépôt : un clone frais l'a toujours.
+S'il vient à manquer, l'application le recrée sur un campus vide et le
+signale sur la sortie d'erreur, dans les deux modes (dev et packagé). Pour
+récupérer les données du dépôt après une suppression accidentelle :
+`git checkout src/data.json`.
+
 ## Architecture
 
 ```mermaid

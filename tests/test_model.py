@@ -1,6 +1,7 @@
 from datetime import date
 import asyncio
 
+from campus_app import write_default_campus
 from model import Campus
 from rendering import campus_map_parts
 from ui.uploads import read_uploaded_file
@@ -89,3 +90,17 @@ def test_save_and_load_round_trip(tmp_path):
     assert len(loaded.buildings) == 1
     assert loaded.buildings[0].floors[0].rooms[0].name == "Salle C1"
     assert loaded.buildings[0].floors[0].rooms[0].capacity == 12
+
+
+def test_write_default_campus_produces_a_loadable_empty_campus(tmp_path):
+    """Le campus par défaut sert de filet quand data.json manque : s'il cessait
+    d'être chargeable, l'application planterait au démarrage au lieu d'être
+    rattrapée."""
+    path = tmp_path / "data.json"
+
+    write_default_campus(path)
+    campus = Campus.load(path)
+
+    assert campus.buildings == []
+    assert campus.gestionnaires == []
+    assert campus.name
