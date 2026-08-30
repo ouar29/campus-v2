@@ -39,11 +39,28 @@ Le serveur NiceGUI est lancé avec `reload=False` (voir le commentaire dans
 `campus_app.main()`) : un process déjà démarré ne recharge jamais le code
 modifié, il faut l'arrêter et le relancer après un changement.
 
-`src/data.json` est versionné dans le dépôt : un clone frais l'a toujours.
-S'il vient à manquer, l'application le recrée sur un campus vide et le
-signale sur la sortie d'erreur, dans les deux modes (dev et packagé). Pour
-récupérer les données du dépôt après une suppression accidentelle :
-`git checkout src/data.json`.
+### Les données ne sont pas versionnées
+
+`src/data.json` est le campus de travail : il est dans `.gitignore`, et
+l'exécutable packagé n'embarque aucune donnée non plus (voir `build.py`).
+Deux raisons : le fichier est réécrit à chaque interaction avec l'appli, ce
+qui produit des diffs bruyants sans intérêt d'historique ; et il contient un
+campus réel avec l'annuaire des gestionnaires (noms, emails, téléphones), qui
+n'a rien à faire dans un dépôt qu'on peut pousser, ni dans un exécutable
+qu'on distribue.
+
+Un clone frais et un premier lancement démarrent donc sur un **campus vide** :
+`get_data_path()` crée le fichier (et le signale sur la sortie d'erreur en
+dev), puis l'UI ouvre le dialogue d'accueil (`ui/welcome_view.py`) qui propose
+d'importer un `.cps` ou de créer un premier bâtiment. Ce dialogue se déclenche
+sur **`campus.buildings` vide**, pas sur l'absence du fichier : le fichier
+étant recréé au premier démarrage, se fier à son absence ne proposerait
+l'accueil qu'une seule fois.
+
+Corollaire à connaître : `git checkout src/data.json` n'est plus un filet de
+sécurité. Les versions d'avant le délistage restent lisibles dans l'historique
+(`git show <commit>:src/data.json`), mais la seule sauvegarde vivante des
+données est désormais l'export `.cps`.
 
 ## Architecture
 
@@ -61,6 +78,7 @@ flowchart TB
             campus_map["ui/campus_map_view.py<br/>Plan du campus (positions + dimensions)"]
             overview["ui/campus_overview_view.py<br/>vue d'ensemble isométrique"]
             validation["ui/validation_view.py<br/>valider un .cps"]
+            welcome["ui/welcome_view.py<br/>accueil sur campus vide"]
         end
     end
 
@@ -99,6 +117,7 @@ flowchart TB
     overview --> iso_view --> model
     rendering & iso_view --> theme
     campus_app -->|"ui/theme.apply_theme()"| theme
+    campus_app -->|"si campus vide"| welcome
     model <--> datajson
     import_cps --> model --> export_cps
     cps --> import_cps
@@ -317,6 +336,7 @@ Deux règles maintiennent ce découpage praticable :
 - [x] Eclater les vues vers des fichiers dédiés
 - [x] Création de bâtiments modulaires (rectangle, étages identiques) et dimensionnement à l'échelle depuis « Plan du campus »
 - [x] Annuler les éditions de contour d'étage (pile par session + Ctrl+Z)
+- [x] Délister `data.json` et accueillir un campus vide par une proposition d'import
 
 #### Idées
 

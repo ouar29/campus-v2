@@ -50,6 +50,7 @@ from ui.campus_overview_view import open_overview_dialog
 from ui.gestionnaires_view import open_gestionnaires_dialog
 from ui.room_table_view import open_room_table_dialog
 from ui.validation_view import open_validation_dialog
+from ui.welcome_view import open_welcome_dialog
 
 
 def get_resource_path(relative_path: str) -> Path:
@@ -95,13 +96,15 @@ def get_data_path() -> Path:
     if not getattr(sys, "frozen", False):
         dev_path = get_resource_path("src/data.json")
         if not dev_path.exists():
-            # Ce fichier est versionné dans le dépôt : son absence signale
-            # une suppression accidentelle. On repart d'un campus vide
-            # plutôt que de laisser remonter une FileNotFoundError. La page
-            # étant construite à chaque requête (voir main()), cette erreur
-            # ne se verrait qu'en HTTP 500 dans le navigateur, sans rien
-            # dans le terminal — d'où le message ci-dessous.
-            print(f"{dev_path} introuvable — création d'un campus vide.", file=sys.stderr)
+            # Ce fichier n'est pas versionné (voir .gitignore) : sur un clone
+            # frais, son absence est le cas normal, pas une anomalie. On part
+            # d'un campus vide plutôt que de laisser remonter une
+            # FileNotFoundError ; la page étant construite à chaque requête
+            # (voir main()), cette erreur ne se verrait qu'en HTTP 500 dans le
+            # navigateur, sans rien dans le terminal — d'où le message
+            # ci-dessous. L'UI propose alors l'import d'un .cps
+            # (ui/welcome_view.py).
+            print(f"{dev_path} introuvable — démarrage sur un campus vide.", file=sys.stderr)
             write_default_campus(dev_path)
         return dev_path
 
@@ -110,13 +113,16 @@ def get_data_path() -> Path:
     user_data_path = user_dir / "data.json"
 
     if not user_data_path.exists():
+        # Le bundle n'embarque aucune donnée (voir build.py) : livrer le
+        # data.json de développement reviendrait à distribuer un campus réel
+        # — bâtiments, salles, annuaire des gestionnaires — avec
+        # l'exécutable. Le premier lancement démarre donc sur un campus vide,
+        # et l'UI propose l'import d'un .cps (ui/welcome_view.py). La copie
+        # d'un modèle embarqué reste supportée si un build en fournit un.
         bundled_default = get_resource_path("src/data.json")
         if bundled_default.exists():
             shutil.copy(bundled_default, user_data_path)
         else:
-            # Pas de data.json embarqué (ne devrait pas arriver si le build
-            # inclut bien --add-data pour src/data.json) : on démarre à vide
-            # plutôt que de planter.
             write_default_campus(user_data_path)
     return user_data_path
 
@@ -243,6 +249,18 @@ class CampusApp:
     def build(self) -> None:
         self.plan_container = ui.column().classes("w-full h-full")
         self._bind_layout()
+        if self.should_offer_welcome():
+            open_welcome_dialog(self)
+
+    def should_offer_welcome(self) -> bool:
+        """Un campus sans aucun bâtiment n'a rien à afficher sur le plan.
+
+        Le critère est bien « campus vide » et non « data.json absent » :
+        `get_data_path()` recrée le fichier dès le premier démarrage, donc
+        l'absence n'est vraie qu'une seule fois, alors que le vide dure tant
+        que l'utilisateur n'a rien importé ni créé.
+        """
+        return not self.campus.buildings
 
     def _bind_layout(self) -> None:
         build_header(self)

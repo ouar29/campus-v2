@@ -231,3 +231,10 @@ __marimo__/
 .bashrc
 .bash_profile
 .gitconfig
+
+# Données de travail de l'application : le campus réel de l'utilisateur, avec
+# l'annuaire des gestionnaires (noms, emails, téléphones). Réécrit à chaque
+# interaction avec l'appli, donc bruyant en diff — et surtout, ça n'a rien à
+# faire dans un dépôt qu'on peut pousser ou partager. L'appli le recrée vide
+# au démarrage et propose alors d'importer un .cps (voir README).
+src/data.json

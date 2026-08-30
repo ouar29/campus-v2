@@ -81,3 +81,19 @@ def test_import_replaces_model_and_refreshes_selection(monkeypatch, tmp_path):
     assert app.building_select.value == app.state["building"].id
     assert app.floor_select.value == app.state["floor"].id
     assert dialog.closed is True
+
+
+def test_welcome_is_offered_only_while_the_campus_is_empty(tmp_path):
+    """Le critère est le campus vide, pas l'absence de data.json.
+
+    `get_data_path()` recrée le fichier dès le premier démarrage : se fier à
+    son absence ne proposerait l'accueil qu'une seule fois.
+    """
+    from model import Campus
+
+    app = CampusApp.__new__(CampusApp)
+    app.campus = Campus(id="campus-1", name="Campus")
+    assert app.should_offer_welcome() is True
+
+    app.campus.add_building("Bâtiment A")
+    assert app.should_offer_welcome() is False

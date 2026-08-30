@@ -13,19 +13,16 @@ les soucis de PATH parfois observés sous Windows avec les scripts installés
 par Poetry (le binaire généré n'est pas toujours trouvé par le shell), tout
 en produisant exactement le même résultat, puisque c'est le même code.
 
-Le seul ajout par rapport à un `nicegui-pack` nu : le fichier de données par
-défaut (src/data.json) est embarqué dans le bundle, à l'emplacement attendu
-par `get_resource_path()` (campus_app.py) — c'est le modèle qui sera copié
-vers le dossier de données utilisateur au tout premier lancement (voir
-`get_data_path()`). Ce fichier embarqué n'est ensuite jamais modifié
-directement : en mode --onefile, le dossier du bundle est temporaire et
-entièrement effacé à la fermeture de l'application, donc y écrire perdrait
-les modifications de l'utilisateur à chaque redémarrage.
+Aucune donnée n'est embarquée dans le bundle. `src/data.json` est le campus
+de travail de l'utilisateur (non versionné, voir .gitignore) : l'y inclure
+livrerait un campus réel — bâtiments, salles, annuaire des gestionnaires — à
+qui reçoit l'exécutable. L'application packagée démarre donc sur un campus
+vide dans le dossier de données utilisateur (voir `get_data_path()`) et
+propose d'importer un `.cps` au premier lancement.
 """
 from __future__ import annotations
 
 import argparse
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -33,7 +30,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 SRC = ROOT / "src"
 MAIN_SCRIPT = SRC / "main.py"
-DEFAULT_DATA = SRC / "data.json"
 APP_NAME = "Campus-Admin"
 
 
@@ -66,15 +62,10 @@ def main() -> None:
 
     if not MAIN_SCRIPT.exists():
         sys.exit(f"Script principal introuvable : {MAIN_SCRIPT}")
-    if not DEFAULT_DATA.exists():
-        sys.exit(f"Données par défaut introuvables : {DEFAULT_DATA}")
 
     command = [
         sys.executable, "-m", "nicegui.scripts.pack",
         "--name", APP_NAME,
-        # Embarque le data.json "modèle" dans le bundle, au même chemin
-        # relatif ("src/data.json") que get_resource_path() attend.
-        "--add-data", f"{DEFAULT_DATA}{os.pathsep}src",
     ]
     if not args.no_windowed:
         command.append("--windowed")

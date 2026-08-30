@@ -150,3 +150,19 @@ def test_iso_view_draws_floor_labels_above_every_slab():
     assert svg.rindex("<polygon") < svg.index(">RDC<")
     for name in ("RDC", "1er étage", "2e étage"):
         assert f">{name}<" in svg
+
+
+def test_packaged_app_starts_empty_when_no_data_is_bundled(tmp_path, monkeypatch):
+    """Le bundle n'embarque plus de data.json : le premier lancement doit
+    créer un campus vide dans le dossier utilisateur, pas planter."""
+    import campus_app
+
+    user_dir = tmp_path / "userdata"
+    monkeypatch.setattr(campus_app.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(campus_app.platformdirs, "user_data_dir", lambda *a, **k: str(user_dir))
+    monkeypatch.setattr(campus_app, "get_resource_path", lambda rel: tmp_path / "absent" / rel)
+
+    path = campus_app.get_data_path()
+
+    assert path == user_dir / "data.json"
+    assert Campus.load(path).buildings == []
