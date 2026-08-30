@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import uuid
 
+from i18n import t
 from model import Campus, Floor, Room
 from geometry import PLAN_DISPLAY_WIDTH_PX, SCALE, building_footprint, world_to_px
 from theme import DARK, Palette
@@ -64,16 +65,16 @@ def room_svg(room: Room, origin_x: float, origin_y: float, text_scale: float = 1
     if is_unavailable:
         fill, fill_opacity, stroke, dash = palette.ROOM_UNAVAILABLE_FILL, "0.6", palette.ROOM_UNAVAILABLE_STROKE, ' stroke-dasharray="4,3"'
         name_fill = palette.TEXT_SECONDARY
-        title_suffix = " (indisponible)"
+        title_suffix = t("plan.room.tooltip_unavailable_suffix")
     else:
         fill, fill_opacity, stroke, dash = palette.ROOM_FILL, "0.9", palette.ROOM_STROKE, ""
         name_fill = palette.TEXT_PRIMARY
         title_suffix = ""
     return (
         f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="{fill}" fill-opacity="{fill_opacity}" '
-        f'stroke="{stroke}" stroke-width="2"{dash}><title>{room.name} — {room.capacity} pers.{title_suffix}</title></circle>'
+        f'stroke="{stroke}" stroke-width="2"{dash}><title>{t("plan.room.tooltip", name=room.name, capacity=room.capacity, unavailable_suffix=title_suffix)}</title></circle>'
         f'<text x="{cx}" y="{cy - r - gap_above:.2f}" font-size="{name_font:.2f}" font-weight="700" text-anchor="middle" fill="{name_fill}">{room.name}</text>'
-        f'<text x="{cx}" y="{cy + r + gap_below:.2f}" font-size="{cap_font:.2f}" font-weight="600" text-anchor="middle" fill="{palette.TEXT_SECONDARY}">{room.capacity} pers.</text>'
+        f'<text x="{cx}" y="{cy + r + gap_below:.2f}" font-size="{cap_font:.2f}" font-weight="600" text-anchor="middle" fill="{palette.TEXT_SECONDARY}">{t("plan.room.capacity", capacity=room.capacity)}</text>'
     )
 
 
@@ -122,7 +123,7 @@ def campus_map_shapes_svg(campus: Campus, origin_x: float, origin_y: float, pale
         points_str = " ".join(f"{px},{py}" for px, py in pts_px)
         parts.append(
             f'<polygon points="{points_str}" fill="{color}" fill-opacity="0.85" stroke="{palette.OUTLINE_DARK}" stroke-width="2">'
-            f'<title>{building.name} ({len(building.floors)} étage(s))</title></polygon>'
+            f'<title>{t("plan.building.tooltip", name=building.name, count=len(building.floors))}</title></polygon>'
         )
     return "".join(parts)
 
@@ -155,6 +156,8 @@ def campus_map_parts(campus: Campus, palette: Palette = DARK) -> tuple[str, str]
         + "</svg>"
     )
 
+    scale_caption = t("plan.campus_map.scale", step=f"{step:g}")
+
     labels_json = "[" + ",".join(
         (
             lambda pts_px: f'{{"name":"{_escape_js_string(building.name)}",'
@@ -170,7 +173,7 @@ def campus_map_parts(campus: Campus, palette: Palette = DARK) -> tuple[str, str]
       {svg}
       <div id="campusmap-labels-{uid}" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;"></div>
       <div style="position:absolute; left:8px; bottom:8px; font-size:13px; color:{palette.TEXT_SECONDARY};">
-        grille : {step:g} unités — échelle réelle, aucune déformation
+        {scale_caption}
       </div>
     </div>
     """

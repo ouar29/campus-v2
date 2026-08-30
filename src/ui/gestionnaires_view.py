@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from nicegui import ui
 
+from i18n import t
 from model import Gestionnaire
 
 
@@ -19,17 +20,17 @@ def open_gestionnaires_dialog(app) -> None:
         gestionnaire = app.controller.get_gestionnaire(gestionnaire_id) if gestionnaire_id else None
 
         with ui.dialog() as edit_dialog, ui.card().classes("w-96"):
-            ui.label("Modifier le gestionnaire" if gestionnaire else "Nouveau gestionnaire").classes(
+            ui.label(t("gestionnaire.edit.title_existing") if gestionnaire else t("gestionnaire.edit.title_new")).classes(
                 "text-lg font-semibold mb-2"
             )
-            nom_input = ui.input("Nom", value=gestionnaire.nom if gestionnaire else "").classes("w-full")
-            email_input = ui.input("Email", value=gestionnaire.email if gestionnaire else "").classes("w-full")
-            tel_input = ui.input("Téléphone", value=gestionnaire.telephone if gestionnaire else "").classes("w-full")
+            nom_input = ui.input(t("gestionnaire.field.nom"), value=gestionnaire.nom if gestionnaire else "").classes("w-full")
+            email_input = ui.input(t("gestionnaire.field.email"), value=gestionnaire.email if gestionnaire else "").classes("w-full")
+            tel_input = ui.input(t("gestionnaire.field.telephone"), value=gestionnaire.telephone if gestionnaire else "").classes("w-full")
 
             def save() -> None:
                 nom = (nom_input.value or "").strip()
                 if not nom:
-                    ui.notify("Le nom est requis", color="warning")
+                    ui.notify(t("gestionnaire.error.name_required"), color="warning")
                     return
                 if gestionnaire:
                     app.controller.update_gestionnaire(
@@ -48,17 +49,17 @@ def open_gestionnaires_dialog(app) -> None:
                 rows_view.refresh()
 
             with ui.row().classes("w-full justify-end mt-2"):
-                ui.button("Annuler", on_click=edit_dialog.close).props("flat")
-                ui.button("Enregistrer", on_click=save)
+                ui.button(t("common.cancel"), on_click=edit_dialog.close).props("flat")
+                ui.button(t("gestionnaire.action.save"), on_click=save)
 
         edit_dialog.open()
 
     def confirm_delete(gestionnaire: Gestionnaire) -> None:
         rooms_using = app.controller.get_rooms_for_gestionnaire(gestionnaire.id)
         with ui.dialog() as confirm_dlg, ui.card():
-            message = f"Supprimer « {gestionnaire.nom} » ?"
+            message = t("gestionnaire.delete.confirm", nom=gestionnaire.nom)
             if rooms_using:
-                message += f" {len(rooms_using)} salle(s) perdront ce gestionnaire."
+                message += t("gestionnaire.delete.rooms_impacted", count=len(rooms_using))
             ui.label(message)
 
             def do_delete() -> None:
@@ -67,17 +68,17 @@ def open_gestionnaires_dialog(app) -> None:
                 rows_view.refresh()
 
             with ui.row().classes("w-full justify-end mt-2"):
-                ui.button("Annuler", on_click=confirm_dlg.close).props("flat")
-                ui.button("Supprimer", color="negative", on_click=do_delete)
+                ui.button(t("common.cancel"), on_click=confirm_dlg.close).props("flat")
+                ui.button(t("gestionnaire.action.delete"), color="negative", on_click=do_delete)
         confirm_dlg.open()
 
     def render_gestionnaire_row(gestionnaire: Gestionnaire) -> None:
         nb_salles = len(app.controller.get_rooms_for_gestionnaire(gestionnaire.id))
         with ui.row().classes("w-full items-center gap-3 py-1 border-b border-gray-100 dark:border-gray-700"):
             ui.label(gestionnaire.nom).classes("w-48 font-medium")
-            ui.label(gestionnaire.email or "—").classes("flex-1 text-sm text-gray-600 dark:text-gray-300")
-            ui.label(gestionnaire.telephone or "—").classes("w-40 text-sm text-gray-600 dark:text-gray-300")
-            ui.label(f"{nb_salles} salle(s)").classes("w-28 text-sm text-gray-500 dark:text-gray-300")
+            ui.label(gestionnaire.email or t("gestionnaire.empty_value")).classes("flex-1 text-sm text-gray-600 dark:text-gray-300")
+            ui.label(gestionnaire.telephone or t("gestionnaire.empty_value")).classes("w-40 text-sm text-gray-600 dark:text-gray-300")
+            ui.label(t("gestionnaire.rooms_count", count=nb_salles)).classes("w-28 text-sm text-gray-500 dark:text-gray-300")
             ui.button(icon="edit", on_click=lambda g=gestionnaire: open_edit_dialog(g.id)).props("flat round size=sm")
             ui.button(
                 icon="delete", on_click=lambda g=gestionnaire: confirm_delete(g)
@@ -93,7 +94,7 @@ def open_gestionnaires_dialog(app) -> None:
             shown = True
             render_gestionnaire_row(gestionnaire)
         if not shown:
-            ui.label("Aucun gestionnaire ne correspond à la recherche.").classes(
+            ui.label(t("gestionnaire.search.no_match")).classes(
                 "text-gray-500 dark:text-gray-300 py-4"
             )
 
@@ -103,15 +104,15 @@ def open_gestionnaires_dialog(app) -> None:
 
     with ui.dialog().props("maximized") as dialog, ui.card().classes("w-full h-full"):
         with ui.row().classes("items-center justify-between w-full mb-2"):
-            ui.label("Gestionnaires de salles").classes("text-lg font-semibold")
+            ui.label(t("gestionnaire.dialog.title")).classes("text-lg font-semibold")
             with ui.row().classes("items-center gap-2"):
-                ui.button("+ Gestionnaire", icon="add", on_click=lambda: open_edit_dialog(None)).props(
+                ui.button(t("gestionnaire.dialog.add"), icon="add", on_click=lambda: open_edit_dialog(None)).props(
                     "size=sm color=primary"
                 )
                 ui.button(icon="close", on_click=dialog.close).props("flat round")
 
         ui.input(
-            label="Rechercher un gestionnaire (nom, email)...",
+            label=t("gestionnaire.dialog.search"),
             on_change=on_search_change,
         ).classes("w-full mb-2").props("clearable dense outlined")
 
@@ -120,10 +121,10 @@ def open_gestionnaires_dialog(app) -> None:
                 "w-full items-center gap-3 pb-2 border-b-2 border-gray-300 dark:border-gray-600 "
                 "text-sm font-semibold text-gray-500 dark:text-gray-300"
             ):
-                ui.label("Nom").classes("w-48")
-                ui.label("Email").classes("flex-1")
-                ui.label("Téléphone").classes("w-40")
-                ui.label("Salles").classes("w-28")
+                ui.label(t("gestionnaire.field.nom")).classes("w-48")
+                ui.label(t("gestionnaire.field.email")).classes("flex-1")
+                ui.label(t("gestionnaire.field.telephone")).classes("w-40")
+                ui.label(t("gestionnaire.column.rooms")).classes("w-28")
 
             rows_view()
 

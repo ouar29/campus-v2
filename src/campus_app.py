@@ -15,6 +15,7 @@ import platformdirs
 from nicegui import events, native, ui
 
 from controller import CampusController
+from i18n import t
 from export_cps import export_campus
 from import_cps import convert as convert_cps
 from geometry import (
@@ -106,7 +107,7 @@ def get_data_path() -> Path:
             # navigateur, sans rien dans le terminal — d'où le message
             # ci-dessous. L'UI propose alors l'import d'un .cps
             # (ui/welcome_view.py).
-            print(f"{dev_path} introuvable — démarrage sur un campus vide.", file=sys.stderr)
+            print(t("app.data_file_missing", path=dev_path), file=sys.stderr)
             write_default_campus(dev_path)
         return dev_path
 
@@ -275,14 +276,14 @@ class CampusApp:
     @ui.refreshable
     def version_info(self) -> None:
         version = self.campus.extra.get("version")
-        text = f"Version du fichier : {version}" if version else "Version du fichier : inconnue"
+        text = t("sidebar.version.known", version=version) if version else t("sidebar.version.unknown")
         ui.label(text).classes("text-xs text-indigo-600 dark:text-indigo-300")
 
     @ui.refreshable
     def room_list(self) -> None:
         floor = self.state["floor"]
         if floor is None or not floor.rooms:
-            ui.label("Aucune salle sur cet étage.").classes("text-sm text-gray-500 dark:text-gray-300")
+            ui.label(t("sidebar.rooms.empty")).classes("text-sm text-gray-500 dark:text-gray-300")
             return
         for room in floor.rooms:
             unavailable = is_unavailable(room)
@@ -318,7 +319,7 @@ class CampusApp:
 
     def start_geometry_edit(self) -> None:
         if self.state["floor"] is None:
-            ui.notify("Sélectionne d'abord un étage", color="warning")
+            ui.notify(t("plan.error.select_floor_first"), color="warning")
             return
         self.state["mode"] = "editing_geometry"
         self.state["dragging_vertex_index"] = None
@@ -336,7 +337,7 @@ class CampusApp:
         if floor is None:
             return
         if not self.controller.undo_geometry_edit(floor):
-            ui.notify("Rien à annuler sur ce contour", color="info")
+            ui.notify(t("plan.edit.nothing_to_undo"), color="info")
             return
         self.render_plan_area()
 
@@ -345,9 +346,9 @@ class CampusApp:
         if floor is None:
             return
         if not self.controller.reset_geometry_edit(floor):
-            ui.notify("Le contour est déjà dans son état de départ", color="info")
+            ui.notify(t("plan.edit.already_initial"), color="info")
             return
-        ui.notify("Contour rétabli tel qu'à l'ouverture de l'édition")
+        ui.notify(t("plan.edit.reset_done"))
         self.render_plan_area()
 
     def on_geometry_key(self, e: events.KeyEventArguments) -> None:
@@ -368,11 +369,10 @@ class CampusApp:
                 origin_x, origin_y = -PADDING, -PADDING
                 with ui.row().classes("items-center gap-2 mb-2"):
                     ui.label(
-                        f"Dessin du contour : « {self.state['pending_floor_name']} » — "
-                        f"cliquez pour ajouter des sommets, double-cliquez pour fermer le contour"
+                        t("plan.drawing.hint", name=self.state["pending_floor_name"])
                     ).classes("text-sm text-gray-600 dark:text-gray-300")
-                    ui.button("Terminer", on_click=self.finish_floor_drawing).props("size=sm color=primary")
-                    ui.button("Annuler", on_click=self.cancel_floor_drawing).props("size=sm flat")
+                    ui.button(t("plan.drawing.finish"), on_click=self.finish_floor_drawing).props("size=sm color=primary")
+                    ui.button(t("common.cancel"), on_click=self.cancel_floor_drawing).props("size=sm flat")
                 bg = blank_background(DEFAULT_CANVAS_W + 2 * PADDING, DEFAULT_CANVAS_H + 2 * PADDING, self.palette)
                 img = ui.interactive_image(
                     bg,
@@ -385,7 +385,7 @@ class CampusApp:
 
             floor = self.state["floor"]
             if floor is None:
-                ui.label("Aucun étage sélectionné. Crée un bâtiment puis un étage pour commencer.").classes("text-gray-500 dark:text-gray-300")
+                ui.label(t("plan.empty")).classes("text-gray-500 dark:text-gray-300")
                 self.state["plan_image"] = None
                 return
 
@@ -398,12 +398,11 @@ class CampusApp:
                 text_scale = text_scale_for_canvas(w_units)
                 with ui.row().classes("items-center gap-2 mb-2"):
                     ui.label(
-                        "Édition du contour — glisse un sommet (orange), double-clique dessus pour le "
-                        "supprimer, clique sur une arête pour y ajouter un sommet"
+                        t("plan.edit.hint")
                     ).classes("text-sm text-gray-600 dark:text-gray-300")
-                    ui.button("Annuler", icon="undo", on_click=self.undo_geometry_edit).props("size=sm outline").tooltip("Annuler la dernière modification du contour (Ctrl+Z)")
-                    ui.button("Rétablir l'état initial", icon="restart_alt", on_click=self.reset_geometry_edit).props("size=sm outline").tooltip("Revenir au contour tel qu'il était à l'ouverture de l'édition")
-                    ui.button("Terminer l'édition", on_click=self.stop_geometry_edit).props("size=sm color=primary")
+                    ui.button(t("plan.edit.undo"), icon="undo", on_click=self.undo_geometry_edit).props("size=sm outline").tooltip(t("plan.edit.undo_tooltip"))
+                    ui.button(t("plan.edit.reset"), icon="restart_alt", on_click=self.reset_geometry_edit).props("size=sm outline").tooltip(t("plan.edit.reset_tooltip"))
+                    ui.button(t("plan.edit.finish"), on_click=self.stop_geometry_edit).props("size=sm color=primary")
                 # Le clavier est enregistré ici, donc retiré avec le reste de
                 # la barre quand on quitte le mode édition.
                 ui.keyboard(on_key=self.on_geometry_key)
@@ -418,10 +417,10 @@ class CampusApp:
                 return
 
             if self.state["mode"] == "placing_room":
-                ui.label(f"Clique sur le plan pour placer « {self.state['pending_room_name']} »").classes("text-sm text-blue-600 dark:text-indigo-300 mb-2")
+                ui.label(t("plan.room.place_hint", name=self.state["pending_room_name"])).classes("text-sm text-blue-600 dark:text-indigo-300 mb-2")
             else:
                 with ui.row().classes("items-center gap-2 mb-2"):
-                    ui.button("Éditer le contour de cet étage", icon="edit", on_click=self.start_geometry_edit).props("size=sm outline")
+                    ui.button(t("plan.edit.start"), icon="edit", on_click=self.start_geometry_edit).props("size=sm outline")
 
             origin_x, origin_y, w_units, h_units = transform_for_floor(floor)
             text_scale = text_scale_for_canvas(w_units)
@@ -457,7 +456,7 @@ class CampusApp:
                     self.save()
                     redraw_edit()
                 elif idx is not None and len(floor.polygon) <= 3:
-                    ui.notify("Un contour doit garder au moins 3 sommets", color="warning")
+                    ui.notify(t("plan.edit.min_vertices"), color="warning")
                 return
 
             if e.type == "mousedown":
@@ -594,7 +593,7 @@ class CampusApp:
 
     def finish_floor_drawing(self) -> None:
         if len(self.state["pending_points"]) < 3:
-            ui.notify("Il faut au moins 3 points pour former un contour", color="warning")
+            ui.notify(t("plan.drawing.too_few_points"), color="warning")
             return
         try:
             floor = self.floor_service.create_floor(
@@ -677,24 +676,24 @@ class CampusApp:
 
     def import_cps_dialog(self) -> None:
         with ui.dialog() as dialog, ui.card().classes("w-[420px] max-w-[90vw]"):
-            ui.label("Importer un campus depuis un fichier .cps").classes("text-lg font-semibold mb-2")
+            ui.label(t("import.dialog.title")).classes("text-lg font-semibold mb-2")
             ui.upload(
-                label="Choisir un fichier .cps",
+                label=t("import.dialog.choose_file"),
                 auto_upload=True,
                 on_upload=lambda e: self._on_cps_import(e, dialog),
             ).props("accept=.cps")
-            ui.button("Fermer", on_click=dialog.close).props("flat").classes("mt-3")
+            ui.button(t("common.close"), on_click=dialog.close).props("flat").classes("mt-3")
         dialog.open()
 
     async def _on_cps_import(self, event, dialog) -> None:
         payload = await read_uploaded_file(event)
         if payload is None:
-            ui.notify("Aucun fichier reçu pour l’import .cps", color="negative")
+            ui.notify(t("import.error.no_file"), color="negative")
             return
 
         file_name, content = payload
         if not file_name.lower().endswith(".cps"):
-            ui.notify("Le fichier doit avoir l’extension .cps", color="negative")
+            ui.notify(t("import.error.wrong_extension"), color="negative")
             return
 
         tmp_dir = Path.cwd() / ".campus-import-tmp"
@@ -704,7 +703,7 @@ class CampusApp:
             tmp_path.write_bytes(content)
             campus, skipped = convert_cps(str(tmp_path))
         except Exception as exc:
-            ui.notify(f"Échec de l’import .cps : {exc}", color="negative")
+            ui.notify(t("import.error.failed", error=exc), color="negative")
             return
         finally:
             try:
@@ -725,19 +724,19 @@ class CampusApp:
         self.render_plan_area()
 
         if skipped:
-            ui.notify(f"Import terminé avec {skipped} salle(s) ignorée(s) hors périmètre", color="warning")
+            ui.notify(t("import.done_with_skipped", count=skipped), color="warning")
         else:
-            ui.notify("Campus importé avec succès", color="positive")
+            ui.notify(t("import.done"), color="positive")
         dialog.close()
 
     def export_cps_dialog(self) -> None:
         default_name = f"{self.campus.name.lower().replace(' ', '_') or 'campus'}.cps"
         with ui.dialog() as dialog, ui.card().classes("w-[480px] max-w-[90vw]"):
-            ui.label("Exporter le campus vers un fichier .cps").classes("text-lg font-semibold mb-2")
-            file_name = ui.input("Nom du fichier", value=default_name).props("outlined")
+            ui.label(t("export.dialog.title")).classes("text-lg font-semibold mb-2")
+            file_name = ui.input(t("export.dialog.file_name"), value=default_name).props("outlined")
             with ui.row().classes("w-full justify-end mt-3"):
-                ui.button("Fermer", on_click=dialog.close).props("flat")
-                ui.button("Exporter", on_click=lambda: self._on_cps_export(file_name.value, dialog)).props("color=primary")
+                ui.button(t("common.close"), on_click=dialog.close).props("flat")
+                ui.button(t("export.action"), on_click=lambda: self._on_cps_export(file_name.value, dialog)).props("color=primary")
         dialog.open()
 
     def _on_cps_export(self, file_name: str, dialog) -> None:
@@ -754,10 +753,10 @@ class CampusApp:
             payload = export_campus(self.campus)
             path.write_text(__import__("json").dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
         except Exception as exc:
-            ui.notify(f"Échec de l’export .cps : {exc}", color="negative")
+            ui.notify(t("export.error.failed", error=exc), color="negative")
             return
 
-        ui.notify(f"Exporté vers {path}", color="positive")
+        ui.notify(t("export.done", path=path), color="positive")
         try:
             ui.download(str(path))
         except Exception:
@@ -769,7 +768,7 @@ class CampusApp:
         existante) — l'entrée normale de l'app passe par main(), qui construit
         l'UI dans une route @ui.page explicite (voir plus bas)."""
         ui.run(
-            title="Administration Campus",
+            title=t("app.window_title"),
             favicon="🚀",
             port=native.find_open_port(),
             reload=False,
@@ -793,7 +792,7 @@ def main() -> None:
         CampusApp().build()
 
     ui.run(
-        title="Administration Campus",
+        title=t("app.window_title"),
         favicon="🚀",
         port=native.find_open_port(),
         reload=False,

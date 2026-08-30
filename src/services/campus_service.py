@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from geometry import building_local_bounds, rectangle_polygon
+from i18n import t
 from model import Campus, Building
 
 MAX_MODULAR_FLOORS = 60
@@ -9,10 +10,10 @@ MAX_MODULAR_FLOORS = 60
 def default_floor_name(level: int) -> str:
     """Nom d'étage conventionnel pour un niveau donné (0 = RDC)."""
     if level == 0:
-        return "RDC"
+        return t("floor.name.ground")
     if level < 0:
-        return f"Sous-sol {level}"
-    return "1er étage" if level == 1 else f"{level}e étage"
+        return t("floor.name.basement", level=level)
+    return t("floor.name.first") if level == 1 else t("floor.name.numbered", level=level)
 
 
 class CampusService:
@@ -21,7 +22,7 @@ class CampusService:
 
     def create_building(self, name: str) -> Building:
         if not name or not name.strip():
-            raise ValueError("Le nom du bâtiment est requis")
+            raise ValueError(t("error.building.name_required"))
         return self.campus.add_building(name.strip())
 
     def rename_campus(self, name: str) -> str:
@@ -32,7 +33,7 @@ class CampusService:
         fichier d'export. Un nom vide casserait les deux.
         """
         if not name or not name.strip():
-            raise ValueError("Le nom du campus est requis")
+            raise ValueError(t("error.campus.name_required"))
         self.campus.name = name.strip()
         return self.campus.name
 
@@ -54,14 +55,14 @@ class CampusService:
         séparément ensuite, comme n'importe quel contour dessiné à la main.
         """
         if not name or not name.strip():
-            raise ValueError("Le nom du bâtiment est requis")
+            raise ValueError(t("error.building.name_required"))
         if width <= 0 or depth <= 0:
-            raise ValueError("La largeur et la profondeur doivent être strictement positives")
+            raise ValueError(t("error.building.size_positive"))
         floor_count = int(floor_count)
         if floor_count < 1:
-            raise ValueError("Un bâtiment doit avoir au moins un niveau")
+            raise ValueError(t("error.building.at_least_one_level"))
         if floor_count > MAX_MODULAR_FLOORS:
-            raise ValueError(f"Nombre de niveaux trop élevé (maximum {MAX_MODULAR_FLOORS})")
+            raise ValueError(t("error.building.too_many_levels", maximum=MAX_MODULAR_FLOORS))
 
         building = self.campus.add_building(name.strip(), position=position)
         polygon = rectangle_polygon(width, depth)
@@ -77,14 +78,14 @@ class CampusService:
         les salles restent à leur place relative dans le bâtiment.
         """
         if width <= 0 or depth <= 0:
-            raise ValueError("La largeur et la profondeur doivent être strictement positives")
+            raise ValueError(t("error.building.size_positive"))
         bounds = building_local_bounds(building)
         if bounds is None:
-            raise ValueError("Ce bâtiment n'a aucun contour d'étage à redimensionner")
+            raise ValueError(t("error.building.no_polygon_to_resize"))
         min_x, min_y, max_x, max_y = bounds
         current_w, current_h = max_x - min_x, max_y - min_y
         if current_w <= 0 or current_h <= 0:
-            raise ValueError("L'empreinte actuelle est dégénérée (largeur ou profondeur nulle)")
+            raise ValueError(t("error.building.degenerate_footprint"))
 
         scale_x, scale_y = width / current_w, depth / current_h
         for floor in building.floors:

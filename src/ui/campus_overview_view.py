@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from nicegui import ui
+from i18n import t
 from iso_view import build_overview_parts
 
 
@@ -15,7 +16,7 @@ def open_overview_dialog(app) -> None:
         try:
             html, js = build_overview_parts(app.campus, angle_deg=rotation_state["angle"], palette=app.palette)
         except Exception as exc:
-            ui.notify(f"Erreur lors de la génération de la vue d'ensemble : {exc}", color="negative")
+            ui.notify(t("overview.error.render_failed", error=exc), color="negative")
             raise
         container_ref["el"].clear()
         with container_ref["el"]:
@@ -28,12 +29,12 @@ def open_overview_dialog(app) -> None:
 
     with ui.dialog().props("maximized") as dialog, ui.card().classes("w-full h-full"):
         with ui.row().classes("items-center justify-between w-full"):
-            ui.label("Vue d'ensemble du campus").classes("text-lg font-semibold")
+            ui.label(t("overview.dialog.title")).classes("text-lg font-semibold")
             with ui.row().classes("items-center gap-1"):
                 ui.button(icon="rotate_left", on_click=lambda: rotate(-ROTATION_STEP)) \
-                    .props("flat round").tooltip("Tourner vers la gauche (45°)")
+                    .props("flat round").tooltip(t("overview.rotate_left"))
                 ui.button(icon="rotate_right", on_click=lambda: rotate(ROTATION_STEP)) \
-                    .props("flat round").tooltip("Tourner vers la droite (45°)")
+                    .props("flat round").tooltip(t("overview.rotate_right"))
                 ui.button(icon="close", on_click=dialog.close).props("flat round")
         container_ref["el"] = ui.column().classes("w-full h-full")
 

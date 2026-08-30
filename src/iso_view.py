@@ -12,6 +12,7 @@ import math
 import uuid
 
 from model import Campus
+from i18n import t
 from theme import DARK, Palette
 
 ISO_COS30 = math.cos(math.radians(30))
@@ -281,12 +282,12 @@ def _build_overview(campus: Campus, angle_deg: float = 0.0, palette: Palette = D
                 )
 
             # Face supérieure (dalle de l'étage)
-            level_tag = " — sous-sol" if floor.level < 0 else ""
+            level_tag = t("iso.floor.tooltip_basement_suffix") if floor.level < 0 else ""
             top_points = " ".join(f"{px},{py}" for px, py in top_proj)
             elements.append(
                 f'<polygon points="{top_points}" fill="{color}" fill-opacity="{TOP_FACE_OPACITY}" '
                 f'stroke="{palette.OUTLINE_DARK}" stroke-width="0.8">'
-                f'<title>{building.name} — {floor.name} ({len(floor.rooms)} salle(s)){level_tag}</title></polygon>'
+                f'<title>{t("iso.floor.tooltip", building=building.name, floor=floor.name, count=len(floor.rooms), basement_suffix=level_tag)}</title></polygon>'
             )
 
             # Étiquette étage (centre approximatif de la face supérieure)
@@ -313,7 +314,7 @@ def _build_overview(campus: Campus, angle_deg: float = 0.0, palette: Palette = D
     if not all_x:
         empty_svg = (
             '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="120">'
-            f'<text x="20" y="60" font-size="14" fill="{palette.TEXT_MUTED}">Aucun bâtiment à afficher.</text></svg>'
+            f'<text x="20" y="60" font-size="14" fill="{palette.TEXT_MUTED}">{t("iso.empty")}</text></svg>'
         )
         return empty_svg, 400.0, 120.0
 

@@ -93,6 +93,7 @@ flowchart TB
         geometry["geometry.py<br/>repères monde ↔ pixels, distances"]
         iso_view["iso_view.py<br/>vue isométrique (lecture seule)"]
         theme["theme.py<br/>palettes DARK / LIGHT<br/>(source unique des couleurs)"]
+        i18n["i18n/fr.py<br/>catalogue des libellés"]
     end
 
     subgraph Interop["Interopérabilité .cps"]
@@ -116,6 +117,7 @@ flowchart TB
     campus_app --> rendering --> geometry
     overview --> iso_view --> model
     rendering & iso_view --> theme
+    UI & Domaine & Rendu --> i18n
     campus_app -->|"ui/theme.apply_theme()"| theme
     campus_app -->|"si campus vide"| welcome
     model <--> datajson
@@ -154,6 +156,10 @@ Points clés :
   les étiquettes d'étage sont émises **après toutes les dalles** du bâtiment,
   car l'ordre du document SVG est l'ordre de peinture — dessinées au fil des
   étages, elles seraient recouvertes par la dalle du dessus.
+- **`i18n/fr.py` est la source unique des libellés.** Même principe que
+  `theme.py`, et mêmes contraintes : aucune dépendance à NiceGUI, donc
+  importable par les services, la couche de rendu SVG et les vues. Tout texte
+  affiché passe par `t("clé")`.
 - **`theme.py` est la source unique des couleurs.** Il est volontairement
   sans dépendance à NiceGUI, pour être importable par la couche de rendu SVG
   (`rendering.py`, `iso_view.py`) autant que par `ui/theme.py`, qui se limite
@@ -246,6 +252,46 @@ positionnement. Côté campus-v2 :
   pour qu'elle reste visible et puisse être affinée par glisser-déposer ;
 - `export_cps.py` exclut ce bâtiment placeholder de tout export, pour ne
   jamais propager de salles sans géométrie réelle vers le format externe.
+
+### Catalogue de libellés (i18n)
+
+Les 205 chaînes affichées à l'utilisateur vivent dans `src/i18n/fr.py`, un
+dict plat, et sont récupérées par `t("clé")`. Le français est la seule langue
+aujourd'hui ; l'indirection sert à avoir un endroit unique où relire et
+corriger le vocabulaire — et à rendre une seconde langue possible sans
+retoucher 24 fichiers.
+
+Conventions :
+
+- **Clés `domaine.contexte.detail`** (`building.dialog.title`,
+  `error.floor.name_required`), du plus général au plus précis.
+- **Paramètres nommés** : `t("import.done_with_skipped", count=skipped)`, et
+  jamais positionnels — l'ordre des mots change d'une langue à l'autre.
+- **Une clé inconnue ne lève pas** : elle est signalée sur la sortie d'erreur
+  et rendue telle quelle. La page NiceGUI étant reconstruite à chaque requête,
+  une exception ici donnerait un HTTP 500 muet dans le navigateur ; perdre un
+  libellé vaut mieux que perdre la page.
+
+**Le vrai filet est statique.** Les vues n'étant pas couvertes par les tests,
+une clé mal orthographiée ne se verrait qu'à l'écran. `tests/test_i18n.py` lit
+donc le code source et vérifie que : toute clé utilisée existe au catalogue ;
+aucune clé du catalogue n'est morte ; aucun appel `t()` n'utilise une clé
+calculée (elle échapperait aux deux contrôles précédents) ; chaque `{param}`
+d'un message est bien fourni par ses appelants ; et le style reste homogène
+(apostrophe droite, tutoiement).
+
+Ce qui n'entre **pas** au catalogue : les identifiants techniques (icônes,
+classes CSS, props Quasar), les messages des scripts en ligne de commande
+(`import_cps.py`, `export_cps.py` lancés à la main, qui s'adressent au
+développeur), et surtout `model.PENDING_BUILDING_NAME` — ce n'est pas un
+libellé mais une **valeur de données** qui doit rester identique à celle de
+campus-factory : la traduire casserait le rapprochement des salles à
+positionner.
+
+L'extraction a été l'occasion d'uniformiser ce que la dispersion cachait : un
+message en vouvoiement au milieu d'une appli qui tutoie, et quatre messages à
+l'apostrophe typographique quand tout le reste utilise l'apostrophe droite.
+Les deux règles sont maintenant vérifiées par un test.
 
 ### Filtres prédéfinis de la table des salles
 
@@ -417,6 +463,7 @@ Deux règles maintiennent ce découpage praticable :
 - [x] Éditer le nom du campus (celui qui part dans le `.cps` exporté)
 - [x] Faire suivre le thème clair/sombre aux vues SVG (plan 2D, plan du campus, vue isométrique)
 - [x] Filtres prédéfinis dans « Toutes les salles » (indisponibles, sans gestionnaire, capacité à 0, à positionner)
+- [x] Extraire tous les libellés dans un catalogue (`i18n/fr.py`), avec garde-fou statique
 
 #### Idées
 

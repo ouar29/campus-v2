@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from i18n import t
 from model import Building, Floor, Point
 
 
@@ -9,9 +10,9 @@ class FloorService:
 
     def create_floor(self, building: Building, name: str, polygon, level=None) -> Floor:
         if not name or not name.strip():
-            raise ValueError("Le nom de l'étage est requis")
+            raise ValueError(t("error.floor.name_required"))
         if len(polygon) < 3:
-            raise ValueError("Un contour doit contenir au moins 3 points")
+            raise ValueError(t("error.floor.polygon_too_short"))
         return building.add_floor(name.strip(), polygon, level=level)
 
     def add_vertex(self, floor: Floor, point):

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from nicegui import ui
 
+from i18n import t
 from model import Building, Floor, Room
 from services.room_service import (
     has_no_gestionnaire,
@@ -27,10 +28,10 @@ from ui.room_details_view import open_room_details_dialog
 # (clé, libellé, icône, prédicat). Les prédicats vivent dans le service : ce
 # sont des questions métier, la vue ne fait que les habiller.
 PREDEFINED_FILTERS = (
-    ("unavailable", "Indisponibles", "block", lambda building, floor, room: is_unavailable(room)),
-    ("no_gestionnaire", "Sans gestionnaire", "person_off", lambda building, floor, room: has_no_gestionnaire(room)),
-    ("capacity", "Capacité à 0", "error_outline", lambda building, floor, room: has_suspicious_capacity(room)),
-    ("awaiting", "À positionner", "wrong_location", lambda building, floor, room: is_awaiting_placement(building)),
+    ("unavailable", t("room_table.filter.unavailable"), "block", lambda building, floor, room: is_unavailable(room)),
+    ("no_gestionnaire", t("room_table.filter.no_gestionnaire"), "person_off", lambda building, floor, room: has_no_gestionnaire(room)),
+    ("capacity", t("room_table.filter.capacity"), "error_outline", lambda building, floor, room: has_suspicious_capacity(room)),
+    ("awaiting", t("room_table.filter.awaiting"), "wrong_location", lambda building, floor, room: is_awaiting_placement(building)),
 )
 
 
@@ -47,7 +48,7 @@ def open_room_table_dialog(app, focus_room_id: str | None = None) -> None:
         def on_name_change(e) -> None:
             new_name = (e.value or "").strip()
             if not new_name:
-                ui.notify("Le nom ne peut pas être vide", color="warning")
+                ui.notify(t("room_table.error.empty_name"), color="warning")
                 return
             room.name = new_name
             app.save()
@@ -63,13 +64,13 @@ def open_room_table_dialog(app, focus_room_id: str | None = None) -> None:
             ui.label(building.name).classes("w-40 text-sm text-gray-600 dark:text-gray-300")
             ui.label(floor.name).classes("w-40 text-sm text-gray-600 dark:text-gray-300")
             ui.input(value=room.name, on_change=on_name_change).classes("flex-1").props("dense")
-            ui.label(f"{room.capacity} pers.").classes("w-32 text-sm text-gray-600 dark:text-gray-300")
+            ui.label(t("room_table.room.capacity", capacity=room.capacity)).classes("w-32 text-sm text-gray-600 dark:text-gray-300")
             if unavailable:
-                ui.icon("block").classes("text-red-500 dark:text-red-400").tooltip("Indisponible")
+                ui.icon("block").classes("text-red-500 dark:text-red-400").tooltip(t("room_table.room.unavailable"))
             ui.button(
                 icon="tune",
                 on_click=lambda: open_room_details_dialog(app, room, rows_view.refresh),
-            ).props("flat round size=sm").tooltip("Détails avancés")
+            ).props("flat round size=sm").tooltip(t("room_table.room.details"))
 
     def matches_filters(building: Building, floor: Floor, room: Room) -> bool:
         return all(
@@ -97,10 +98,10 @@ def open_room_table_dialog(app, focus_room_id: str | None = None) -> None:
                     rows.append((building, floor, room))
 
         if not rows:
-            ui.label("Aucune salle ne correspond à la recherche.").classes("text-gray-500 dark:text-gray-300 py-4")
+            ui.label(t("room_table.search.no_match")).classes("text-gray-500 dark:text-gray-300 py-4")
             return
 
-        ui.label(f"{len(rows)} salle(s) affichée(s)").classes("text-xs text-gray-500 dark:text-gray-300 py-1")
+        ui.label(t("room_table.count", count=len(rows))).classes("text-xs text-gray-500 dark:text-gray-300 py-1")
         for building, floor, room in rows:
             render_room_row(building, floor, room)
 
@@ -134,7 +135,7 @@ def open_room_table_dialog(app, focus_room_id: str | None = None) -> None:
     @ui.refreshable
     def filters_view() -> None:
         with ui.row().classes("items-center gap-2 w-full mb-2"):
-            ui.label("Filtres").classes("text-sm font-semibold text-gray-500 dark:text-gray-300")
+            ui.label(t("room_table.filters.title")).classes("text-sm font-semibold text-gray-500 dark:text-gray-300")
             for key, label, icon, _ in PREDEFINED_FILTERS:
                 ui.chip(
                     label,
@@ -144,19 +145,19 @@ def open_room_table_dialog(app, focus_room_id: str | None = None) -> None:
                     on_selection_change=make_filter_handler(key),
                 ).props("outline")
             if active_filters:
-                ui.button("Tout effacer", icon="filter_alt_off", on_click=clear_filters).props("flat dense size=sm")
+                ui.button(t("room_table.filters.clear"), icon="filter_alt_off", on_click=clear_filters).props("flat dense size=sm")
 
     with ui.dialog().props("maximized") as dialog, ui.card().classes("w-full h-full"):
         with ui.row().classes("items-center justify-between w-full mb-2"):
-            ui.label("Toutes les salles").classes("text-lg font-semibold")
+            ui.label(t("room_table.dialog.title")).classes("text-lg font-semibold")
             ui.button(icon="close", on_click=dialog.close).props("flat round")
 
         has_any_room = any(floor.rooms for building in app.campus.buildings for floor in building.floors)
         if not has_any_room:
-            ui.label("Aucune salle créée pour l'instant.").classes("text-gray-500 dark:text-gray-300")
+            ui.label(t("room_table.empty")).classes("text-gray-500 dark:text-gray-300")
         else:
             ui.input(
-                label="Rechercher une salle (nom, bâtiment, étage)...",
+                label=t("room_table.search"),
                 value=search["query"],
                 on_change=on_search_change,
             ).classes("w-full mb-2").props("clearable dense outlined")
@@ -165,10 +166,10 @@ def open_room_table_dialog(app, focus_room_id: str | None = None) -> None:
 
             with ui.scroll_area().classes("w-full h-full"):
                 with ui.row().classes("w-full items-center gap-3 pb-2 border-b-2 border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-500 dark:text-gray-300"):
-                    ui.label("Bâtiment").classes("w-40")
-                    ui.label("Étage").classes("w-40")
-                    ui.label("Nom de la salle").classes("flex-1")
-                    ui.label("Capacité").classes("w-32")
+                    ui.label(t("room_table.column.building")).classes("w-40")
+                    ui.label(t("room_table.column.floor")).classes("w-40")
+                    ui.label(t("room_table.column.room")).classes("flex-1")
+                    ui.label(t("room_table.column.capacity")).classes("w-32")
 
                 rows_view()
 

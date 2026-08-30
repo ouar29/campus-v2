@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from geometry import polygon_centroid
+from i18n import t
 from model import PENDING_BUILDING_NAME, Building, Floor, Room
 
 # --- Prédicats d'intérêt sur une salle -----------------------------------
@@ -36,10 +37,10 @@ class RoomService:
 
     def create_room(self, floor: Floor, name: str, capacity: int, position) -> Room:
         if not name or not name.strip():
-            raise ValueError("Le nom de la salle est requis")
+            raise ValueError(t("error.room.name_required"))
         capacity = int(capacity)
         if capacity < 1:
-            raise ValueError("La capacité doit être au moins 1")
+            raise ValueError(t("error.room.capacity_min"))
         return floor.add_room(name.strip(), capacity, [round(position[0], 2), round(position[1], 2)])
 
     def move_room(self, source_floor: Floor, room: Room, target_floor: Floor) -> bool:

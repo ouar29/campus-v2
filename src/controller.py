@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 
+from i18n import t
 from model import Campus, Building, Floor, Gestionnaire, Room
 from services.campus_service import CampusService
 from services.floor_service import FloorGeometryEditor, FloorService
@@ -61,13 +62,13 @@ class CampusController:
         room = self.get_room(room_id)
         _, source_floor = self.find_room_location(room_id)
         if room is None or source_floor is None:
-            raise ValueError(f"Salle introuvable : {room_id}")
+            raise ValueError(t("error.room.not_found", room_id=room_id))
         target_building = self.get_building(target_building_id)
         if target_building is None:
-            raise ValueError(f"Bâtiment introuvable : {target_building_id}")
+            raise ValueError(t("error.building.not_found", building_id=target_building_id))
         target_floor = self.get_floor(target_building, target_floor_id)
         if target_floor is None:
-            raise ValueError(f"Étage introuvable : {target_floor_id}")
+            raise ValueError(t("error.floor.not_found", floor_id=target_floor_id))
         moved = self.room_service.move_room(source_floor, room, target_floor)
         self.save()
         return moved
@@ -89,7 +90,7 @@ class CampusController:
     def update_gestionnaire(self, gestionnaire_id: str, **changes) -> None:
         gestionnaire = self.get_gestionnaire(gestionnaire_id)
         if gestionnaire is None:
-            raise ValueError(f"Gestionnaire introuvable : {gestionnaire_id}")
+            raise ValueError(t("error.gestionnaire.not_found", gestionnaire_id=gestionnaire_id))
         for key, value in changes.items():
             setattr(gestionnaire, key, value)
         self.save()
@@ -97,7 +98,7 @@ class CampusController:
     def delete_gestionnaire(self, gestionnaire_id: str, *, cascade: bool = True) -> None:
         rooms_using = [r for r in self._iter_rooms() if gestionnaire_id in r.gestionnaire_ids]
         if rooms_using and not cascade:
-            raise ValueError(f"Gestionnaire assigné à {len(rooms_using)} salle(s), suppression bloquée.")
+            raise ValueError(t("error.gestionnaire.still_assigned", count=len(rooms_using)))
         for room in rooms_using:
             room.gestionnaire_ids = [gid for gid in room.gestionnaire_ids if gid != gestionnaire_id]
         self.campus.gestionnaires = [g for g in self.campus.gestionnaires if g.id != gestionnaire_id]
@@ -109,10 +110,10 @@ class CampusController:
     def assign_gestionnaires_to_room(self, room_id: str, gestionnaire_ids: list[str]) -> None:
         room = self.get_room(room_id)
         if room is None:
-            raise ValueError(f"Salle introuvable : {room_id}")
+            raise ValueError(t("error.room.not_found", room_id=room_id))
         unknown = [gid for gid in gestionnaire_ids if self.get_gestionnaire(gid) is None]
         if unknown:
-            raise ValueError(f"Gestionnaire(s) introuvable(s) : {unknown}")
+            raise ValueError(t("error.gestionnaire.unknown_ids", ids=unknown))
         room.gestionnaire_ids = list(dict.fromkeys(gestionnaire_ids))
         self.save()
 
@@ -156,7 +157,7 @@ class CampusController:
         """Redimensionne l'empreinte d'un bâtiment (salles mises à l'échelle avec)."""
         building = self.get_building(building_id)
         if building is None:
-            raise ValueError(f"Bâtiment introuvable : {building_id}")
+            raise ValueError(t("error.building.not_found", building_id=building_id))
         self.campus_service.resize_building(building, width, depth)
         self.save()
         return building

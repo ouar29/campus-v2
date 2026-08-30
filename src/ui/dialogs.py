@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from nicegui import ui
 
+from i18n import t
 from model import BUILDING_DEFAULT_SPACING
 from services.campus_service import MAX_MODULAR_FLOORS
 
@@ -28,38 +29,35 @@ def open_new_building_dialog(app) -> None:
     default_position = _default_building_position(campus)
 
     with ui.dialog() as dialog, ui.card().classes("w-[460px] max-w-[92vw]"):
-        ui.label("Nouveau bâtiment").classes("text-lg font-semibold")
-        name_input = ui.input("Nom du bâtiment").classes("w-full")
+        ui.label(t("building.dialog.title")).classes("text-lg font-semibold")
+        name_input = ui.input(t("building.dialog.name")).classes("w-full")
         mode_toggle = ui.toggle(
-            {MODE_EMPTY: "Vide", MODE_MODULAR: "Modulaire (rectangle)"},
+            {MODE_EMPTY: t("building.mode.empty"), MODE_MODULAR: t("building.mode.modular")},
             value=MODE_EMPTY,
         ).props("dense")
-        ui.label(
-            "Vide : le bâtiment est créé sans étage, à dessiner ensuite un par un. "
-            "Modulaire : un rectangle répliqué à l'identique sur tous les niveaux."
-        ).classes("text-xs text-gray-500 dark:text-gray-300")
+        ui.label(t("building.mode.hint")).classes("text-xs text-gray-500 dark:text-gray-300")
 
         with ui.column().classes("w-full gap-2 mt-2") as modular_fields:
-            ui.label("Géométrie (unités du plan, identiques aux contours d'étage)").classes(
+            ui.label(t("building.modular.geometry_title")).classes(
                 "text-sm font-semibold text-gray-500 dark:text-gray-300"
             )
             with ui.row().classes("w-full gap-2 no-wrap"):
-                width_input = ui.number("Largeur (X)", value=20, min=0.1, step=1).props("dense outlined").classes("flex-1")
-                depth_input = ui.number("Profondeur (Y)", value=10, min=0.1, step=1).props("dense outlined").classes("flex-1")
+                width_input = ui.number(t("building.modular.width"), value=20, min=0.1, step=1).props("dense outlined").classes("flex-1")
+                depth_input = ui.number(t("building.modular.depth"), value=10, min=0.1, step=1).props("dense outlined").classes("flex-1")
             with ui.row().classes("w-full gap-2 no-wrap"):
-                count_input = ui.number("Nombre de niveaux", value=1, min=1, max=MAX_MODULAR_FLOORS, precision=0).props("dense outlined").classes("flex-1")
-                lowest_input = ui.number("Niveau le plus bas", value=0, precision=0).props("dense outlined").classes("flex-1")
-            ui.label("Niveau 0 = RDC, négatif = sous-sol. Les niveaux sont nommés automatiquement.").classes(
+                count_input = ui.number(t("building.modular.floor_count"), value=1, min=1, max=MAX_MODULAR_FLOORS, precision=0).props("dense outlined").classes("flex-1")
+                lowest_input = ui.number(t("building.modular.lowest_level"), value=0, precision=0).props("dense outlined").classes("flex-1")
+            ui.label(t("building.modular.level_hint")).classes(
                 "text-xs text-gray-500 dark:text-gray-300"
             )
 
-            ui.label("Position sur le plan du campus (coin bas-gauche de l'empreinte)").classes(
+            ui.label(t("building.modular.position_title")).classes(
                 "text-sm font-semibold text-gray-500 dark:text-gray-300 mt-1"
             )
             with ui.row().classes("w-full gap-2 no-wrap"):
-                pos_x_input = ui.number("X", value=default_position[0], step=1).props("dense outlined").classes("flex-1")
-                pos_y_input = ui.number("Y", value=default_position[1], step=1).props("dense outlined").classes("flex-1")
-            ui.label("Ajustable à tout moment depuis « Plan du campus ».").classes(
+                pos_x_input = ui.number(t("campus_map.column.x"), value=default_position[0], step=1).props("dense outlined").classes("flex-1")
+                pos_y_input = ui.number(t("campus_map.column.y"), value=default_position[1], step=1).props("dense outlined").classes("flex-1")
+            ui.label(t("building.modular.position_hint")).classes(
                 "text-xs text-gray-500 dark:text-gray-300"
             )
         modular_fields.bind_visibility_from(mode_toggle, "value", value=MODE_MODULAR)
@@ -72,7 +70,7 @@ def open_new_building_dialog(app) -> None:
 
         def confirm() -> None:
             if not name_input.value:
-                ui.notify("Le nom est requis", color="warning")
+                ui.notify(t("common.name_required"), color="warning")
                 return
             try:
                 if mode_toggle.value == MODE_MODULAR:
@@ -93,41 +91,41 @@ def open_new_building_dialog(app) -> None:
             dialog.close()
 
         with ui.row().classes("justify-end w-full mt-2"):
-            ui.button("Annuler", on_click=dialog.close).props("flat")
-            ui.button("Créer", on_click=confirm)
+            ui.button(t("common.cancel"), on_click=dialog.close).props("flat")
+            ui.button(t("common.create"), on_click=confirm)
     dialog.open()
 
 
 def open_new_floor_dialog(campus, state, save, floor_select, room_list, render_plan_area):
     if state["building"] is None:
-        ui.notify("Sélectionne ou crée d'abord un bâtiment", color="warning")
+        ui.notify(t("floor.error.select_building_first"), color="warning")
         return
 
     building = state["building"]
     default_level = (max((f.level for f in building.floors), default=-1)) + 1
-    clone_options = {"__none__": "Aucun — dessiner un nouveau contour"}
+    clone_options = {"__none__": t("floor.dialog.clone_none")}
     clone_options.update({f.id: f.name for f in building.floors})
 
     with ui.dialog() as dialog, ui.card():
-        ui.label("Nouvel étage").classes("text-lg font-semibold")
-        name_input = ui.input("Nom de l'étage (ex : RDC, 1er étage, Sous-sol)").classes("w-full")
+        ui.label(t("floor.dialog.title")).classes("text-lg font-semibold")
+        name_input = ui.input(t("floor.dialog.name")).classes("w-full")
         level_input = ui.number(
-            "Niveau (0 = RDC, négatif = sous-sol, positif = étage)",
+            t("floor.dialog.level"),
             value=default_level,
             precision=0,
         ).classes("w-full")
-        clone_select = ui.select(clone_options, value="__none__", label="Copier la géométrie de").classes("w-full")
+        clone_select = ui.select(clone_options, value="__none__", label=t("floor.dialog.clone_from")).classes("w-full")
 
         def confirm() -> None:
             if not name_input.value:
-                ui.notify("Le nom est requis", color="warning")
+                ui.notify(t("common.name_required"), color="warning")
                 return
             level = int(level_input.value if level_input.value is not None else default_level)
 
             if clone_select.value and clone_select.value != "__none__":
                 source_floor = next((f for f in building.floors if f.id == clone_select.value), None)
                 if source_floor is None or not source_floor.polygon:
-                    ui.notify("Impossible de copier ce contour", color="warning")
+                    ui.notify(t("floor.error.clone_failed"), color="warning")
                     return
                 from services.floor_service import FloorService
                 try:
@@ -157,24 +155,24 @@ def open_new_floor_dialog(campus, state, save, floor_select, room_list, render_p
             render_plan_area()
 
         with ui.row().classes("justify-end w-full mt-2"):
-            ui.button("Annuler", on_click=dialog.close).props("flat")
-            ui.button("Créer", on_click=confirm)
+            ui.button(t("common.cancel"), on_click=dialog.close).props("flat")
+            ui.button(t("common.create"), on_click=confirm)
     dialog.open()
 
 
 def open_new_room_dialog(state, save, room_list, render_plan_area):
     if state["floor"] is None:
-        ui.notify("Sélectionne ou crée d'abord un étage", color="warning")
+        ui.notify(t("room.error.select_floor_first"), color="warning")
         return
 
     with ui.dialog() as dialog, ui.card():
-        ui.label("Nouvelle salle").classes("text-lg font-semibold")
-        name_input = ui.input("Nom de la salle").classes("w-full")
-        capacity_input = ui.number("Capacité (personnes)", value=10, min=1, precision=0).classes("w-full")
+        ui.label(t("room.dialog.title")).classes("text-lg font-semibold")
+        name_input = ui.input(t("room.dialog.name")).classes("w-full")
+        capacity_input = ui.number(t("room.dialog.capacity"), value=10, min=1, precision=0).classes("w-full")
 
         def confirm() -> None:
             if not name_input.value:
-                ui.notify("Le nom est requis", color="warning")
+                ui.notify(t("common.name_required"), color="warning")
                 return
             state["mode"] = "placing_room"
             state["pending_room_name"] = name_input.value
@@ -183,6 +181,6 @@ def open_new_room_dialog(state, save, room_list, render_plan_area):
             render_plan_area()
 
         with ui.row().classes("justify-end w-full mt-2"):
-            ui.button("Annuler", on_click=dialog.close).props("flat")
-            ui.button("Placer sur le plan", on_click=confirm)
+            ui.button(t("common.cancel"), on_click=dialog.close).props("flat")
+            ui.button(t("room.dialog.place_action"), on_click=confirm)
     dialog.open()
