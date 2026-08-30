@@ -92,7 +92,7 @@ flowchart TB
         rendering["rendering.py<br/>génère le SVG (salles, contours, grille)"]
         geometry["geometry.py<br/>repères monde ↔ pixels, distances"]
         iso_view["iso_view.py<br/>vue isométrique (lecture seule)"]
-        theme["theme.py<br/>palette (source unique des couleurs)"]
+        theme["theme.py<br/>palettes DARK / LIGHT<br/>(source unique des couleurs)"]
     end
 
     subgraph Interop["Interopérabilité .cps"]
@@ -157,8 +157,11 @@ Points clés :
 - **`theme.py` est la source unique des couleurs.** Il est volontairement
   sans dépendance à NiceGUI, pour être importable par la couche de rendu SVG
   (`rendering.py`, `iso_view.py`) autant que par `ui/theme.py`, qui se limite
-  à pousser la palette dans le thème Quasar via `apply_theme()`. Toute
-  nouvelle couleur s'ajoute là plutôt qu'en dur dans un f-string SVG.
+  à pousser les couleurs de marque dans le thème Quasar via `apply_theme()`.
+  Il expose deux palettes complètes, `DARK` et `LIGHT` (mêmes champs, valeurs
+  différentes), choisies par `palette_for(dark)`. Toute nouvelle couleur
+  s'ajoute comme un champ de `Palette`, avec sa valeur dans les deux
+  palettes, plutôt qu'en dur dans un f-string SVG.
   Attention : les couleurs injectées dans du SVG/HTML le sont par
   interpolation de f-string — une chaîne portant un `{NOM}` doit bien avoir
   son préfixe `f`, sinon le placeholder ressort littéralement dans la page.
@@ -243,6 +246,27 @@ positionnement. Côté campus-v2 :
   pour qu'elle reste visible et puisse être affinée par glisser-déposer ;
 - `export_cps.py` exclut ce bâtiment placeholder de tout export, pour ne
   jamais propager de salles sans géométrie réelle vers le format externe.
+
+### Thème clair et thème sombre dans les SVG
+
+Le reste de la page suit le thème par CSS ; les vues SVG, non. Le plan est
+une **image encodée en data URI** et la vue isométrique une chaîne SVG
+construite en Python : ni l'une ni l'autre ne peut réagir à un changement de
+classe CSS. Elles restaient donc en indigo sur fond clair.
+
+La palette est par conséquent **choisie au moment du rendu et passée en
+paramètre** : `blank_background()`, `floor_plan_content()`,
+`campus_map_parts()`, `build_overview_parts()` et leurs helpers prennent tous
+un `palette: Palette = DARK`. Côté UI, `CampusApp.palette` dérive la palette
+de `self.dark.value`, et les vues la relaient (`app.palette`).
+
+Corollaire à ne pas oublier en touchant à la bascule de thème : changer de
+thème doit **redessiner** le plan. C'est le rôle de
+`CampusApp.set_dark_mode()`, que les deux boutons de l'en-tête appellent à la
+place de `dark.enable()` / `dark.disable()` — ces derniers ne feraient
+basculer que le CSS, laissant le SVG dans l'ancienne palette. Les dialogues
+(plan du campus, vue isométrique) reconstruisent leur SVG à l'ouverture, ils
+n'ont donc rien à faire de plus.
 
 ### Nom du campus et sessions
 
@@ -360,6 +384,7 @@ Deux règles maintiennent ce découpage praticable :
 - [x] Annuler les éditions de contour d'étage (pile par session + Ctrl+Z)
 - [x] Délister `data.json` et accueillir un campus vide par une proposition d'import
 - [x] Éditer le nom du campus (celui qui part dans le `.cps` exporté)
+- [x] Faire suivre le thème clair/sombre aux vues SVG (plan 2D, plan du campus, vue isométrique)
 
 #### Idées
 

@@ -30,6 +30,7 @@ from geometry import (
     transform_for_floor,
 )
 from model import Building, Campus, Floor
+from theme import Palette, palette_for
 from rendering import (
     blank_background,
     drawing_preview_content,
@@ -237,6 +238,24 @@ class CampusApp:
                 self.render_plan_area()
                 return
 
+    @property
+    def palette(self) -> Palette:
+        """Palette des rendus SVG, alignée sur le thème courant de la page."""
+        return palette_for(self.dark.value)
+
+    def set_dark_mode(self, dark: bool) -> None:
+        """Bascule le thème, puis redessine le plan.
+
+        Les SVG sont générés côté serveur (le fond du plan est même une image
+        data URI) : contrairement au reste de la page, ils ne suivent pas le
+        thème par CSS et doivent être régénérés avec la nouvelle palette.
+        """
+        if dark:
+            self.dark.enable()
+        else:
+            self.dark.disable()
+        self.render_plan_area()
+
     def save(self) -> None:
         self.controller.save()
 
@@ -353,10 +372,10 @@ class CampusApp:
                     ).classes("text-sm text-gray-600 dark:text-gray-300")
                     ui.button("Terminer", on_click=self.finish_floor_drawing).props("size=sm color=primary")
                     ui.button("Annuler", on_click=self.cancel_floor_drawing).props("size=sm flat")
-                bg = blank_background(DEFAULT_CANVAS_W + 2 * PADDING, DEFAULT_CANVAS_H + 2 * PADDING)
+                bg = blank_background(DEFAULT_CANVAS_W + 2 * PADDING, DEFAULT_CANVAS_H + 2 * PADDING, self.palette)
                 img = ui.interactive_image(
                     bg,
-                    content=drawing_preview_content(self.state["pending_points"], origin_x, origin_y),
+                    content=drawing_preview_content(self.state["pending_points"], origin_x, origin_y, self.palette),
                     on_mouse=self.on_mouse,
                     events=["mousedown", "dblclick"],
                 ).classes("w-full").style("max-width: 900px")
@@ -387,10 +406,10 @@ class CampusApp:
                 # Le clavier est enregistré ici, donc retiré avec le reste de
                 # la barre quand on quitte le mode édition.
                 ui.keyboard(on_key=self.on_geometry_key)
-                bg = blank_background(w_units, h_units)
+                bg = blank_background(w_units, h_units, self.palette)
                 img = ui.interactive_image(
                     bg,
-                    content=floor_edit_content(floor, origin_x, origin_y, text_scale),
+                    content=floor_edit_content(floor, origin_x, origin_y, text_scale, self.palette),
                     on_mouse=self.on_mouse,
                     events=["mousedown", "mousemove", "mouseup", "dblclick"],
                 ).classes("w-full").style("max-width: 900px")
@@ -405,10 +424,10 @@ class CampusApp:
 
             origin_x, origin_y, w_units, h_units = transform_for_floor(floor)
             text_scale = text_scale_for_canvas(w_units)
-            bg = blank_background(w_units, h_units)
+            bg = blank_background(w_units, h_units, self.palette)
             img = ui.interactive_image(
                 bg,
-                content=floor_plan_content(floor, origin_x, origin_y, text_scale),
+                content=floor_plan_content(floor, origin_x, origin_y, text_scale, self.palette),
                 on_mouse=self.on_mouse,
                 events=["mousedown", "mousemove", "mouseup", "dblclick"],
             ).classes("w-full").style("max-width: 900px")
@@ -427,7 +446,7 @@ class CampusApp:
 
             def redraw_edit() -> None:
                 if self.state["plan_image"] is not None:
-                    self.state["plan_image"].content = floor_edit_content(floor, origin_x, origin_y, text_scale)
+                    self.state["plan_image"].content = floor_edit_content(floor, origin_x, origin_y, text_scale, self.palette)
 
             if e.type == "dblclick":
                 idx, dist = nearest_vertex(floor.polygon, wx, wy)
@@ -486,7 +505,7 @@ class CampusApp:
             wx, wy = px_to_world(e.image_x, e.image_y, origin_x, origin_y)
             self.state["pending_points"].append([round(wx, 2), round(wy, 2)])
             if self.state["plan_image"] is not None:
-                self.state["plan_image"].content = drawing_preview_content(self.state["pending_points"], origin_x, origin_y)
+                self.state["plan_image"].content = drawing_preview_content(self.state["pending_points"], origin_x, origin_y, self.palette)
             return
 
         floor = self.state["floor"]
@@ -548,7 +567,7 @@ class CampusApp:
                 return
             room.position = [round(wx, 2), round(wy, 2)]
             if self.state["plan_image"] is not None:
-                self.state["plan_image"].content = floor_plan_content(floor, origin_x, origin_y, text_scale)
+                self.state["plan_image"].content = floor_plan_content(floor, origin_x, origin_y, text_scale, self.palette)
 
         elif e.type == "mouseup":
             if self.state["dragging_room_id"] is not None:

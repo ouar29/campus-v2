@@ -14,8 +14,11 @@ def build_header(campus_app):
             ui.button("Gestionnaires", icon="badge", on_click=campus_app.open_gestionnaires_dialog).props("outline color=white")
             ui.button("Plan du campus", icon="map", on_click=campus_app.open_campus_map_dialog).props("outline color=white")
             ui.button("Vue d'ensemble (isométrique)", icon="view_in_ar", on_click=campus_app.open_overview_dialog).props("outline color=white")
-            ui.button(icon="light_mode", on_click=campus_app.dark.disable).props("flat round color=white").tooltip("Thème clair").bind_visibility_from(campus_app.dark, "value", value=True)
-            ui.button(icon="dark_mode", on_click=campus_app.dark.enable).props("flat round color=white").tooltip("Thème sombre").bind_visibility_from(campus_app.dark, "value", value=False)
+            # Passe par set_dark_mode() et non par dark.enable/disable : le
+            # plan SVG est généré côté serveur et doit être redessiné avec la
+            # palette du nouveau thème.
+            ui.button(icon="light_mode", on_click=lambda: campus_app.set_dark_mode(False)).props("flat round color=white").tooltip("Thème clair").bind_visibility_from(campus_app.dark, "value", value=True)
+            ui.button(icon="dark_mode", on_click=lambda: campus_app.set_dark_mode(True)).props("flat round color=white").tooltip("Thème sombre").bind_visibility_from(campus_app.dark, "value", value=False)
 
 
 def build_sidebar(campus_app):

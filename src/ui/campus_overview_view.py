@@ -13,7 +13,7 @@ def open_overview_dialog(app) -> None:
         if container_ref["el"] is None:
             return
         try:
-            html, js = build_overview_parts(app.campus, angle_deg=rotation_state["angle"])
+            html, js = build_overview_parts(app.campus, angle_deg=rotation_state["angle"], palette=app.palette)
         except Exception as exc:
             ui.notify(f"Erreur lors de la génération de la vue d'ensemble : {exc}", color="negative")
             raise

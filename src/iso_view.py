@@ -12,18 +12,7 @@ import math
 import uuid
 
 from model import Campus
-from theme import (
-    ISO_BG,
-    ISO_GRID_AXIS_COLOR,
-    ISO_GRID_COLOR,
-    ISO_LABEL_HALO,
-    ISO_PALETTE,
-    OUTLINE_DARK,
-    TEXT_MUTED,
-    TEXT_PRIMARY,
-    THEME_DARK,
-    THEME_PRIMARY,
-)
+from theme import DARK, Palette
 
 ISO_COS30 = math.cos(math.radians(30))
 ISO_SIN30 = math.sin(math.radians(30))
@@ -100,7 +89,7 @@ def _unproject_ground(sx: float, sy: float, angle_deg: float = 0.0) -> tuple[flo
     return _rotate_xy(x, y, -angle_deg)
 
 
-def _ground_grid_svg(screen_x_range: tuple[float, float], screen_y_range: tuple[float, float], angle_deg: float = 0.0) -> str:
+def _ground_grid_svg(screen_x_range: tuple[float, float], screen_y_range: tuple[float, float], angle_deg: float = 0.0, palette: Palette = DARK) -> str:
     """Grille isométrique au niveau du sol (z=0), couvrant toute la zone
     écran donnée (dans le même repère pré-décalage que les bâtiments)."""
     corners = [
@@ -123,14 +112,14 @@ def _ground_grid_svg(screen_x_range: tuple[float, float], screen_y_range: tuple[
     while x <= x1:
         p1, p2 = _iso(x, y0, 0, angle_deg), _iso(x, y1, 0, angle_deg)
         is_axis = abs(x) < 1e-6
-        color, width, opacity = (ISO_GRID_AXIS_COLOR, 1.4, 0.7) if is_axis else (ISO_GRID_COLOR, 0.6, 0.35)
+        color, width, opacity = (palette.ISO_GRID_AXIS_COLOR, 1.4, 0.7) if is_axis else (palette.ISO_GRID_COLOR, 0.6, 0.35)
         lines.append(f'<line x1="{p1[0]}" y1="{p1[1]}" x2="{p2[0]}" y2="{p2[1]}" stroke="{color}" stroke-width="{width}" opacity="{opacity}"/>')
         x += GRID_SPACING
     y = y0
     while y <= y1:
         p1, p2 = _iso(x0, y, 0, angle_deg), _iso(x1, y, 0, angle_deg)
         is_axis = abs(y) < 1e-6
-        color, width, opacity = (ISO_GRID_AXIS_COLOR, 1.4, 0.7) if is_axis else (ISO_GRID_COLOR, 0.6, 0.35)
+        color, width, opacity = (palette.ISO_GRID_AXIS_COLOR, 1.4, 0.7) if is_axis else (palette.ISO_GRID_COLOR, 0.6, 0.35)
         lines.append(f'<line x1="{p1[0]}" y1="{p1[1]}" x2="{p2[0]}" y2="{p2[1]}" stroke="{color}" stroke-width="{width}" opacity="{opacity}"/>')
         y += GRID_SPACING
 
@@ -227,7 +216,7 @@ def _declutter_positions(positions: dict[str, tuple[float, float]]) -> dict[str,
     return {k: (v[0], v[1]) for k, v in pos.items()}
 
 
-def _build_overview(campus: Campus, angle_deg: float = 0.0) -> tuple[str, float, float]:
+def _build_overview(campus: Campus, angle_deg: float = 0.0, palette: Palette = DARK) -> tuple[str, float, float]:
     """Construit le SVG complet. Retourne (svg, focus_width, focus_height) où
     focus_width/height est la taille du contenu utile (bâtiments + marge),
     à distinguer de la taille totale du canevas (qui inclut la grille étendue) —
@@ -260,7 +249,7 @@ def _build_overview(campus: Campus, angle_deg: float = 0.0) -> tuple[str, float,
 
     for building in campus.buildings:
         bx, by = building_positions[building.id]
-        color = ISO_PALETTE[hash(building.id) % len(ISO_PALETTE)]
+        color = palette.ISO_PALETTE[hash(building.id) % len(palette.ISO_PALETTE)]
         wall_color = _darken(color)
 
         # Les étiquettes d'étage sont accumulées et dessinées après toutes les
@@ -288,7 +277,7 @@ def _build_overview(campus: Campus, angle_deg: float = 0.0) -> tuple[str, float,
                 quad = f"{p1_bot[0]},{p1_bot[1]} {p2_bot[0]},{p2_bot[1]} {p2_top[0]},{p2_top[1]} {p1_top[0]},{p1_top[1]}"
                 elements.append(
                     f'<polygon points="{quad}" fill="{wall_color}" fill-opacity="{WALL_OPACITY}" '
-                    f'stroke="{OUTLINE_DARK}" stroke-width="0.5"/>'
+                    f'stroke="{palette.OUTLINE_DARK}" stroke-width="0.5"/>'
                 )
 
             # Face supérieure (dalle de l'étage)
@@ -296,7 +285,7 @@ def _build_overview(campus: Campus, angle_deg: float = 0.0) -> tuple[str, float,
             top_points = " ".join(f"{px},{py}" for px, py in top_proj)
             elements.append(
                 f'<polygon points="{top_points}" fill="{color}" fill-opacity="{TOP_FACE_OPACITY}" '
-                f'stroke="{OUTLINE_DARK}" stroke-width="0.8">'
+                f'stroke="{palette.OUTLINE_DARK}" stroke-width="0.8">'
                 f'<title>{building.name} — {floor.name} ({len(floor.rooms)} salle(s)){level_tag}</title></polygon>'
             )
 
@@ -305,8 +294,8 @@ def _build_overview(campus: Campus, angle_deg: float = 0.0) -> tuple[str, float,
             cy = sum(p[1] for p in top_proj) / n
             floor_labels.append(
                 f'<text x="{cx}" y="{cy}" font-size="{FLOOR_LABEL_FONT_SIZE}" text-anchor="middle" '
-                f'dominant-baseline="middle" fill="{TEXT_PRIMARY}" font-weight="700" paint-order="stroke" '
-                f'stroke="{ISO_LABEL_HALO}" stroke-width="4" stroke-linejoin="round">{floor.name}</text>'
+                f'dominant-baseline="middle" fill="{palette.TEXT_PRIMARY}" font-weight="700" paint-order="stroke" '
+                f'stroke="{palette.ISO_LABEL_HALO}" stroke-width="4" stroke-linejoin="round">{floor.name}</text>'
             )
 
         elements.extend(floor_labels)
@@ -317,14 +306,14 @@ def _build_overview(campus: Campus, angle_deg: float = 0.0) -> tuple[str, float,
         record(base_x, base_y + 42)
         elements.append(
             f'<text x="{base_x}" y="{base_y + 34}" font-size="24" text-anchor="middle" '
-            f'fill="{TEXT_PRIMARY}" font-weight="700" paint-order="stroke" stroke="{ISO_LABEL_HALO}" stroke-width="5" '
+            f'fill="{palette.TEXT_PRIMARY}" font-weight="700" paint-order="stroke" stroke="{palette.ISO_LABEL_HALO}" stroke-width="5" '
             f'stroke-linejoin="round">{building.name}</text>'
         )
 
     if not all_x:
         empty_svg = (
             '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="120">'
-            f'<text x="20" y="60" font-size="14" fill="{TEXT_MUTED}">Aucun bâtiment à afficher.</text></svg>'
+            f'<text x="20" y="60" font-size="14" fill="{palette.TEXT_MUTED}">Aucun bâtiment à afficher.</text></svg>'
         )
         return empty_svg, 400.0, 120.0
 
@@ -339,7 +328,7 @@ def _build_overview(campus: Campus, angle_deg: float = 0.0) -> tuple[str, float,
 
     # Grille au sol (niveau 0), en repère pré-décalage (même repère que les
     # bâtiments avant application du translate) pour couvrir tout le canevas.
-    grid = _ground_grid_svg((-offset_x, width - offset_x), (-offset_y, height - offset_y), angle_deg)
+    grid = _ground_grid_svg((-offset_x, width - offset_x), (-offset_y, height - offset_y), angle_deg, palette)
 
     body = grid + "".join(elements)
     # Le viewBox initial cible directement la zone utile (bâtiments + petite marge),
@@ -350,19 +339,19 @@ def _build_overview(campus: Campus, angle_deg: float = 0.0) -> tuple[str, float,
     initial_view_box = f"{GRID_CANVAS_PADDING} {GRID_CANVAS_PADDING} {focus_width} {focus_height}"
     svg = (
         f'<svg width="{width}" height="{height}" viewBox="{initial_view_box}" '
-        f'xmlns="http://www.w3.org/2000/svg" style="display:block; width:100%; height:100%; background:{ISO_BG};">'
+        f'xmlns="http://www.w3.org/2000/svg" style="display:block; width:100%; height:100%; background:{palette.ISO_BG};">'
         f'<g transform="translate({offset_x},{offset_y})">{body}</g>'
         f"</svg>"
     )
     return svg, focus_width, focus_height
 
 
-def build_overview_svg(campus: Campus, angle_deg: float = 0.0) -> str:
-    svg, _, _ = _build_overview(campus, angle_deg)
+def build_overview_svg(campus: Campus, angle_deg: float = 0.0, palette: Palette = DARK) -> str:
+    svg, _, _ = _build_overview(campus, angle_deg, palette)
     return svg
 
 
-def build_overview_parts(campus: Campus, angle_deg: float = 0.0) -> tuple[str, str]:
+def build_overview_parts(campus: Campus, angle_deg: float = 0.0, palette: Palette = DARK) -> tuple[str, str]:
     """Retourne (html, js) pour la vue d'ensemble isométrique avec navigation.
 
     Le cadrage initial (zoom sur les bâtiments) est déjà correct dans le HTML
@@ -383,19 +372,19 @@ def build_overview_parts(campus: Campus, angle_deg: float = 0.0) -> tuple[str, s
     plutôt qu'en CSS/JS côté client (contrairement au zoom/pan ci-dessous,
     qui ne fait que déplacer le viewBox sur un SVG déjà projeté).
     """
-    svg_content, focus_w, focus_h = _build_overview(campus, angle_deg)
+    svg_content, focus_w, focus_h = _build_overview(campus, angle_deg, palette)
     uid = uuid.uuid4().hex
 
     html = f"""
     <div id="iso-wrap-{uid}" style="width:100%; height:100%; min-height:70vh; overflow:hidden;
-         position:relative; background:{ISO_BG}; cursor:grab; border-radius:8px;">
+         position:relative; background:{palette.ISO_BG}; cursor:grab; border-radius:8px;">
       <div style="position:absolute; top:8px; right:8px; z-index:10; display:flex; flex-direction:column; gap:4px;">
         <button onclick="window.isoZoom_{uid} && window.isoZoom_{uid}(1.25)"
-                style="width:34px;height:34px;border-radius:6px;border:1px solid {THEME_PRIMARY};background:{THEME_DARK};color:{TEXT_PRIMARY};cursor:pointer;font-size:18px;">+</button>
+                style="width:34px;height:34px;border-radius:6px;border:1px solid {palette.ISO_PANEL_BORDER};background:{palette.ISO_PANEL_BG};color:{palette.ISO_PANEL_TEXT};cursor:pointer;font-size:18px;">+</button>
         <button onclick="window.isoZoom_{uid} && window.isoZoom_{uid}(0.8)"
-                style="width:34px;height:34px;border-radius:6px;border:1px solid {THEME_PRIMARY};background:{THEME_DARK};color:{TEXT_PRIMARY};cursor:pointer;font-size:18px;">&minus;</button>
+                style="width:34px;height:34px;border-radius:6px;border:1px solid {palette.ISO_PANEL_BORDER};background:{palette.ISO_PANEL_BG};color:{palette.ISO_PANEL_TEXT};cursor:pointer;font-size:18px;">&minus;</button>
         <button onclick="window.isoReset_{uid} && window.isoReset_{uid}()"
-                style="width:34px;height:34px;border-radius:6px;border:1px solid {THEME_PRIMARY};background:{THEME_DARK};color:{TEXT_PRIMARY};cursor:pointer;font-size:14px;">&#8635;</button>
+                style="width:34px;height:34px;border-radius:6px;border:1px solid {palette.ISO_PANEL_BORDER};background:{palette.ISO_PANEL_BG};color:{palette.ISO_PANEL_TEXT};cursor:pointer;font-size:14px;">&#8635;</button>
       </div>
       {svg_content}
     </div>

@@ -177,3 +177,37 @@ def test_renamed_campus_reaches_the_cps_export():
     CampusService(campus).rename_campus("Campus Nord")
 
     assert export_campus(campus)["name"] == "Campus Nord"
+
+
+def test_palette_for_falls_back_to_dark_on_the_system_theme():
+    from theme import DARK, LIGHT, palette_for
+
+    assert palette_for(True) is DARK
+    assert palette_for(False) is LIGHT
+    # NiceGUI expose `None` pour « thème système » : le sombre reste le défaut.
+    assert palette_for(None) is DARK
+
+
+def test_svg_renderings_follow_the_requested_palette():
+    """Les SVG sont générés côté serveur : sans palette explicite, ils
+    resteraient indigo sur un thème clair (le défaut de départ)."""
+    from iso_view import build_overview_svg
+    from rendering import blank_background, floor_plan_content
+    from theme import DARK, LIGHT
+
+    campus = Campus(id="campus-1", name="Campus")
+    building = campus.add_building("Bâtiment A")
+    floor = building.add_floor("RDC", [[0.0, 0.0], [10.0, 0.0], [10.0, 5.0], [0.0, 5.0]], level=0)
+    floor.add_room("Salle A", 10, [5.0, 2.5])
+
+    light_plan = floor_plan_content(floor, 0.0, 0.0, 1.0, LIGHT)
+    assert LIGHT.FLOOR_FILL in light_plan
+    assert DARK.FLOOR_FILL not in light_plan
+    assert LIGHT.TEXT_PRIMARY in light_plan
+
+    # Le fond du plan est une image data URI : il doit suivre lui aussi.
+    assert blank_background(10, 5, LIGHT) != blank_background(10, 5, DARK)
+
+    light_iso = build_overview_svg(campus, 0.0, LIGHT)
+    assert f"background:{LIGHT.ISO_BG}" in light_iso
+    assert DARK.ISO_BG not in light_iso

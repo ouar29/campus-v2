@@ -21,7 +21,7 @@ def open_campus_map_dialog(app) -> None:
         if container_ref["el"] is None:
             return
         container_ref["el"].clear()
-        html, js = campus_map_parts(app.campus)
+        html, js = campus_map_parts(app.campus, app.palette)
         with container_ref["el"]:
             ui.html(html).classes("w-full h-full")
         ui.timer(0.05, lambda: ui.run_javascript(js), once=True)
