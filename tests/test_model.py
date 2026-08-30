@@ -104,3 +104,23 @@ def test_write_default_campus_produces_a_loadable_empty_campus(tmp_path):
     assert campus.buildings == []
     assert campus.gestionnaires == []
     assert campus.name
+
+
+def test_modular_building_footprint_matches_position_and_size():
+    from geometry import building_footprint, building_size
+    from services.campus_service import CampusService
+
+    campus = Campus(id="campus-1", name="Campus")
+    building = CampusService(campus).create_modular_building(
+        "Tour", width=25, depth=8, floor_count=3, position=[100.0, 40.0]
+    )
+
+    assert building_size(building) == (25.0, 8.0)
+    # `position` est le coin bas-gauche de l'empreinte, comme pour les
+    # contours importés d'un .cps (polygone dans le quadrant positif).
+    assert building_footprint(building) == [
+        [100.0, 40.0],
+        [125.0, 40.0],
+        [125.0, 48.0],
+        [100.0, 48.0],
+    ]

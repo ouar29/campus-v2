@@ -111,3 +111,30 @@ def nearest_edge_insertion(polygon: list[list[float]], wx: float, wy: float, thr
             best_dist = dist
             best = (i + 1, [cx, cy])
     return best
+
+
+def rectangle_polygon(width: float, depth: float) -> list[list[float]]:
+    """Contour rectangulaire, ancré sur l'origine du repère local du bâtiment.
+
+    Même convention que les contours importés depuis un `.cps` : le polygone
+    occupe le quadrant positif, `building.position` désigne donc le coin
+    "bas-gauche" de l'empreinte, et non son centre.
+    """
+    return [[0.0, 0.0], [round(width, 2), 0.0], [round(width, 2), round(depth, 2)], [0.0, round(depth, 2)]]
+
+
+def building_local_bounds(building: Building) -> tuple[float, float, float, float] | None:
+    """Boîte englobante (repère local) de tous les contours d'étage du bâtiment."""
+    points = [p for floor in building.floors for p in floor.polygon]
+    if not points:
+        return None
+    return bounding_box(points)
+
+
+def building_size(building: Building) -> tuple[float, float]:
+    """Encombrement (largeur, profondeur) du bâtiment, en unités du plan."""
+    bounds = building_local_bounds(building)
+    if bounds is None:
+        return CAMPUS_ICON_SIZE, CAMPUS_ICON_SIZE
+    min_x, min_y, max_x, max_y = bounds
+    return round(max_x - min_x, 2), round(max_y - min_y, 2)

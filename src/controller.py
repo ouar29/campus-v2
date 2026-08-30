@@ -128,6 +128,33 @@ class CampusController:
         self.save()
         return building
 
+    def create_modular_building(
+        self,
+        name: str,
+        width: float,
+        depth: float,
+        floor_count: int = 1,
+        lowest_level: int = 0,
+        position: list[float] | None = None,
+    ) -> Building:
+        """Crée un bâtiment rectangulaire à étages identiques et le sélectionne."""
+        building = self.campus_service.create_modular_building(
+            name, width, depth, floor_count=floor_count, lowest_level=lowest_level, position=position
+        )
+        self.state["building"] = building
+        self.state["floor"] = building.floors[0] if building.floors else None
+        self.save()
+        return building
+
+    def resize_building(self, building_id: str, width: float, depth: float) -> Building:
+        """Redimensionne l'empreinte d'un bâtiment (salles mises à l'échelle avec)."""
+        building = self.get_building(building_id)
+        if building is None:
+            raise ValueError(f"Bâtiment introuvable : {building_id}")
+        self.campus_service.resize_building(building, width, depth)
+        self.save()
+        return building
+
     def create_floor(self, building: Building, name: str, polygon, level=None) -> Floor:
         floor = self.floor_service.create_floor(building, name, polygon, level=level)
         self.state["building"] = building

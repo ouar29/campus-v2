@@ -2,32 +2,94 @@ from __future__ import annotations
 
 from nicegui import ui
 
+from model import BUILDING_DEFAULT_SPACING
+from services.campus_service import MAX_MODULAR_FLOORS
 
-def open_new_building_dialog(campus, state, save, building_select, floor_select, room_list, render_plan_area):
-    with ui.dialog() as dialog, ui.card():
+
+MODE_EMPTY = "empty"
+MODE_MODULAR = "modular"
+
+
+def _default_building_position(campus) -> list[float]:
+    """Même règle que `Campus.add_building` sans position : à droite du dernier."""
+    max_x = max((b.position[0] for b in campus.buildings), default=-BUILDING_DEFAULT_SPACING)
+    return [max_x + BUILDING_DEFAULT_SPACING, 0.0]
+
+
+def open_new_building_dialog(app) -> None:
+    """Crée un bâtiment, vide (étages dessinés ensuite) ou modulaire.
+
+    Le mode modulaire produit d'un coup un bâtiment rectangulaire dont tous
+    les niveaux partagent la même géométrie — le cas courant d'un immeuble
+    à plateaux identiques, qu'il serait fastidieux de dessiner étage par
+    étage à la souris.
+    """
+    campus = app.campus
+    default_position = _default_building_position(campus)
+
+    with ui.dialog() as dialog, ui.card().classes("w-[460px] max-w-[92vw]"):
         ui.label("Nouveau bâtiment").classes("text-lg font-semibold")
         name_input = ui.input("Nom du bâtiment").classes("w-full")
+        mode_toggle = ui.toggle(
+            {MODE_EMPTY: "Vide", MODE_MODULAR: "Modulaire (rectangle)"},
+            value=MODE_EMPTY,
+        ).props("dense")
+        ui.label(
+            "Vide : le bâtiment est créé sans étage, à dessiner ensuite un par un. "
+            "Modulaire : un rectangle répliqué à l'identique sur tous les niveaux."
+        ).classes("text-xs text-gray-500 dark:text-gray-300")
+
+        with ui.column().classes("w-full gap-2 mt-2") as modular_fields:
+            ui.label("Géométrie (unités du plan, identiques aux contours d'étage)").classes(
+                "text-sm font-semibold text-gray-500 dark:text-gray-300"
+            )
+            with ui.row().classes("w-full gap-2 no-wrap"):
+                width_input = ui.number("Largeur (X)", value=20, min=0.1, step=1).props("dense outlined").classes("flex-1")
+                depth_input = ui.number("Profondeur (Y)", value=10, min=0.1, step=1).props("dense outlined").classes("flex-1")
+            with ui.row().classes("w-full gap-2 no-wrap"):
+                count_input = ui.number("Nombre de niveaux", value=1, min=1, max=MAX_MODULAR_FLOORS, precision=0).props("dense outlined").classes("flex-1")
+                lowest_input = ui.number("Niveau le plus bas", value=0, precision=0).props("dense outlined").classes("flex-1")
+            ui.label("Niveau 0 = RDC, négatif = sous-sol. Les niveaux sont nommés automatiquement.").classes(
+                "text-xs text-gray-500 dark:text-gray-300"
+            )
+
+            ui.label("Position sur le plan du campus (coin bas-gauche de l'empreinte)").classes(
+                "text-sm font-semibold text-gray-500 dark:text-gray-300 mt-1"
+            )
+            with ui.row().classes("w-full gap-2 no-wrap"):
+                pos_x_input = ui.number("X", value=default_position[0], step=1).props("dense outlined").classes("flex-1")
+                pos_y_input = ui.number("Y", value=default_position[1], step=1).props("dense outlined").classes("flex-1")
+            ui.label("Ajustable à tout moment depuis « Plan du campus ».").classes(
+                "text-xs text-gray-500 dark:text-gray-300"
+            )
+        modular_fields.bind_visibility_from(mode_toggle, "value", value=MODE_MODULAR)
+
+        def _number(field, fallback: float) -> float:
+            try:
+                return float(field.value)
+            except (TypeError, ValueError):
+                return fallback
 
         def confirm() -> None:
             if not name_input.value:
                 ui.notify("Le nom est requis", color="warning")
                 return
-            from services.campus_service import CampusService
-            campus_service = CampusService(campus)
             try:
-                building = campus_service.create_building(name_input.value)
+                if mode_toggle.value == MODE_MODULAR:
+                    app.controller.create_modular_building(
+                        name_input.value,
+                        _number(width_input, 0),
+                        _number(depth_input, 0),
+                        floor_count=int(_number(count_input, 1)),
+                        lowest_level=int(_number(lowest_input, 0)),
+                        position=[_number(pos_x_input, default_position[0]), _number(pos_y_input, default_position[1])],
+                    )
+                else:
+                    app.controller.create_building(name_input.value)
             except ValueError as exc:
                 ui.notify(str(exc), color="warning")
                 return
-            save()
-            state["building"] = building
-            state["floor"] = None
-            building_select.set_options({b.id: b.name for b in campus.buildings})
-            building_select.value = building.id
-            floor_select.set_options({})
-            floor_select.value = None
-            room_list.refresh()
-            render_plan_area()
+            app.refresh_campus_selection()
             dialog.close()
 
         with ui.row().classes("justify-end w-full mt-2"):

@@ -198,7 +198,7 @@ class CampusApp:
                 self.save()
                 if hasattr(self, "session_select") and self.session_select is not None:
                     self.session_select.value = session_key
-                self._refresh_campus_selection()
+                self.refresh_campus_selection()
                 self.render_plan_area()
                 return
 
@@ -467,15 +467,7 @@ class CampusApp:
                 self.room_list.refresh()
 
     def open_new_building_dialog(self) -> None:
-        open_new_building_dialog_ui(
-            self.campus,
-            self.state,
-            self.save,
-            self.building_select,
-            self.floor_select,
-            self.room_list,
-            self.render_plan_area,
-        )
+        open_new_building_dialog_ui(self)
 
     def open_new_floor_dialog(self) -> None:
         open_new_floor_dialog_ui(
@@ -554,7 +546,7 @@ class CampusApp:
     def open_validation_dialog(self) -> None:
         open_validation_dialog(self)
 
-    def _refresh_campus_selection(self) -> None:
+    def refresh_campus_selection(self) -> None:
         self.version_info.refresh()
         if hasattr(self, "session_select") and self.session_select is not None:
             self.session_select.set_options(self.session_options())
@@ -617,7 +609,7 @@ class CampusApp:
             except Exception:
                 pass
 
-        self._refresh_campus_selection()
+        self.refresh_campus_selection()
         self.render_plan_area()
 
         if skipped:

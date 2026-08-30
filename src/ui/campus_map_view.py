@@ -1,12 +1,14 @@
-"""Dialogue « Plan du campus » : positionnement des bâtiments.
+"""Dialogue « Plan du campus » : positionnement et dimensionnement des bâtiments.
 
 Vue du dessus à l'échelle réelle (lecture seule) doublée d'une table des
-coordonnées X/Y, seul endroit où la position d'un bâtiment se modifie.
+coordonnées X/Y et de l'encombrement L×P, seul endroit où la position et la
+taille d'ensemble d'un bâtiment se modifient.
 """
 from __future__ import annotations
 
 from nicegui import ui
 
+from geometry import building_size
 from model import Building
 from rendering import campus_map_parts
 
@@ -43,12 +45,61 @@ def open_campus_map_dialog(app) -> None:
 
         return on_x_change, on_y_change
 
+    def make_size_handlers(building: Building):
+        """Redimensionne l'empreinte : les contours d'étage et les salles suivent.
+
+        Les deux champs pilotent la même opération (mise à l'échelle vers une
+        taille absolue), donc on relit toujours la dimension non éditée depuis
+        le modèle plutôt que de mémoriser une valeur qui pourrait dater.
+        """
+
+        def apply_size(width: float, depth: float) -> None:
+            try:
+                app.controller.resize_building(building.id, width, depth)
+            except ValueError as exc:
+                ui.notify(str(exc), color="warning")
+                return
+            redraw_map()
+            # Le plan d'étage derrière le dialogue montre peut-être un étage
+            # qu'on vient de mettre à l'échelle : il doit être redessiné.
+            app.render_plan_area()
+
+        def on_width_change(e) -> None:
+            try:
+                width = float(e.value)
+            except (TypeError, ValueError):
+                return
+            if width <= 0:
+                return
+            apply_size(width, building_size(building)[1])
+
+        def on_depth_change(e) -> None:
+            try:
+                depth = float(e.value)
+            except (TypeError, ValueError):
+                return
+            if depth <= 0:
+                return
+            apply_size(building_size(building)[0], depth)
+
+        return on_width_change, on_depth_change
+
     def render_building_position_row(building: Building) -> None:
         on_x_change, on_y_change = make_position_handlers(building)
+        on_width_change, on_depth_change = make_size_handlers(building)
+        width, depth = building_size(building)
+        has_geometry = any(floor.polygon for floor in building.floors)
         with ui.row().classes("w-full items-center gap-3 py-1 border-b border-gray-100 dark:border-gray-700"):
             ui.label(building.name).classes("flex-1 font-medium")
             ui.number(label="X", value=building.position[0], step=1, on_change=on_x_change).props("dense outlined").classes("w-32")
             ui.number(label="Y", value=building.position[1], step=1, on_change=on_y_change).props("dense outlined").classes("w-32")
+            if has_geometry:
+                # debounce : chaque frappe déclencherait sinon une mise à
+                # l'échelle intermédiaire (« 2 » avant « 25 ») du bâtiment.
+                ui.number(label="Largeur", value=width, step=1, min=0.1, on_change=on_width_change).props("dense outlined debounce=600").classes("w-32")
+                ui.number(label="Profondeur", value=depth, step=1, min=0.1, on_change=on_depth_change).props("dense outlined debounce=600").classes("w-32")
+            else:
+                ui.label("— pas de contour —").classes("w-[16.5rem] text-xs text-gray-500 dark:text-gray-300")
 
     @ui.refreshable
     def rows_view() -> None:
@@ -81,8 +132,9 @@ def open_campus_map_dialog(app) -> None:
             ui.separator().classes("my-3")
 
             ui.label(
-                "Table des positions (coordonnées réelles, mêmes unités que les contours d'étage) "
-                "— modifie X/Y ici."
+                "Table des positions et dimensions (coordonnées réelles, mêmes unités que les "
+                "contours d'étage) — modifie X/Y et l'encombrement L×P ici. Redimensionner met "
+                "à l'échelle tous les étages et les salles qu'ils portent."
             ).classes("text-xs text-gray-500 dark:text-gray-300 mb-1")
             ui.input(
                 label="Rechercher un bâtiment...",
@@ -93,6 +145,8 @@ def open_campus_map_dialog(app) -> None:
                 ui.label("Bâtiment").classes("flex-1")
                 ui.label("X").classes("w-32")
                 ui.label("Y").classes("w-32")
+                ui.label("Largeur").classes("w-32")
+                ui.label("Profondeur").classes("w-32")
 
             rows_view()
             redraw_map()

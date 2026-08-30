@@ -46,3 +46,57 @@ def test_room_service_create_room_and_validates_capacity():
 
     with pytest.raises(ValueError):
         service.create_room(floor, "Salle invalide", 0, [0.0, 0.0])
+
+
+def test_campus_service_create_modular_building():
+    campus = Campus(id="campus-1", name="Campus")
+    service = CampusService(campus)
+
+    building = service.create_modular_building(
+        "Tour A", width=30, depth=12, floor_count=4, lowest_level=-1, position=[100.0, 50.0]
+    )
+
+    assert building.position == [100.0, 50.0]
+    assert [f.level for f in building.floors] == [-1, 0, 1, 2]
+    assert [f.name for f in building.floors] == ["Sous-sol -1", "RDC", "1er étage", "2e étage"]
+    expected = [[0.0, 0.0], [30.0, 0.0], [30.0, 12.0], [0.0, 12.0]]
+    assert all(floor.polygon == expected for floor in building.floors)
+    # Chaque étage a sa propre copie : éditer un contour n'en déforme pas un autre.
+    building.floors[0].polygon[0][0] = 5.0
+    assert building.floors[1].polygon[0][0] == 0.0
+
+
+def test_campus_service_create_modular_building_validates_inputs():
+    campus = Campus(id="campus-1", name="Campus")
+    service = CampusService(campus)
+
+    with pytest.raises(ValueError):
+        service.create_modular_building("Sans largeur", width=0, depth=10)
+    with pytest.raises(ValueError):
+        service.create_modular_building("Sans niveau", width=10, depth=10, floor_count=0)
+    with pytest.raises(ValueError):
+        service.create_modular_building("  ", width=10, depth=10)
+    assert campus.buildings == []
+
+
+def test_campus_service_resize_building_scales_floors_and_rooms():
+    campus = Campus(id="campus-1", name="Campus")
+    service = CampusService(campus)
+    building = service.create_modular_building("Tour B", width=20, depth=10, floor_count=2)
+    room = building.floors[0].add_room("Salle A", 10, [10.0, 5.0])
+
+    service.resize_building(building, 40, 5)
+
+    assert building.floors[0].polygon == [[0.0, 0.0], [40.0, 0.0], [40.0, 5.0], [0.0, 5.0]]
+    assert building.floors[1].polygon == [[0.0, 0.0], [40.0, 0.0], [40.0, 5.0], [0.0, 5.0]]
+    # La salle était au centre du plateau, elle y reste.
+    assert room.position == [20.0, 2.5]
+
+
+def test_campus_service_resize_building_rejects_building_without_polygon():
+    campus = Campus(id="campus-1", name="Campus")
+    service = CampusService(campus)
+    building = service.create_building("Bâtiment vide")
+
+    with pytest.raises(ValueError):
+        service.resize_building(building, 10, 10)

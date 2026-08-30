@@ -52,13 +52,13 @@ flowchart TB
     subgraph UI["Interface — NiceGUI"]
         campus_app["campus_app.py<br/>CampusApp : composition, état UI,<br/>plan interactif (on_mouse)"]
         layout["ui/layout.py<br/>en-tête, barre latérale"]
-        dialogs["ui/dialogs.py<br/>dialogues : nouveau bâtiment / étage / salle"]
+        dialogs["ui/dialogs.py<br/>dialogues : nouveau bâtiment (vide ou modulaire)<br/>/ étage / salle"]
         uploads["ui/uploads.py<br/>lecture des fichiers déposés"]
         subgraph Vues["Vues — un dialogue par module"]
             room_table["ui/room_table_view.py<br/>Toutes les salles"]
             room_details["ui/room_details_view.py<br/>fiche détaillée d'une salle"]
             gestionnaires["ui/gestionnaires_view.py<br/>annuaire des gestionnaires"]
-            campus_map["ui/campus_map_view.py<br/>Plan du campus (positions)"]
+            campus_map["ui/campus_map_view.py<br/>Plan du campus (positions + dimensions)"]
             overview["ui/campus_overview_view.py<br/>vue d'ensemble isométrique"]
             validation["ui/validation_view.py<br/>valider un .cps"]
         end
@@ -215,6 +215,33 @@ positionnement. Côté campus-v2 :
 - `export_cps.py` exclut ce bâtiment placeholder de tout export, pour ne
   jamais propager de salles sans géométrie réelle vers le format externe.
 
+### Bâtiments modulaires et mise à l'échelle
+
+Dessiner un contour à la souris étage par étage est le mode « sur mesure »,
+adapté aux bâtiments d'origine importés d'un `.cps`. Pour un immeuble à
+plateaux identiques, le dialogue **« + Bâtiment »** propose en plus un mode
+**modulaire** : on saisit largeur × profondeur, un nombre de niveaux et le
+niveau le plus bas, et `CampusService.create_modular_building()` crée d'un
+coup le bâtiment avec un rectangle répliqué (une copie indépendante par
+étage, éditable ensuite comme n'importe quel contour). Les niveaux sont
+nommés par `default_floor_name()` : `RDC`, `1er étage`, `2e étage`,
+`Sous-sol -1`.
+
+**Convention de repère** : le rectangle est ancré sur l'origine du repère
+local (quadrant positif), comme les contours importés d'un `.cps`.
+`building.position` désigne donc le **coin bas-gauche** de l'empreinte, pas
+son centre — c'est ce qui rend `geometry.building_footprint()` cohérent
+entre bâtiments dessinés, importés et modulaires.
+
+Le dimensionnement à l'échelle du plan se fait dans **« Plan du campus »**,
+qui porte désormais quatre colonnes éditables : `X` / `Y` (position) et
+`Largeur` / `Profondeur` (encombrement). Modifier une dimension appelle
+`CampusService.resize_building()`, qui met à l'échelle **tous** les contours
+d'étage *et* les positions de salle depuis le coin bas-gauche : les salles
+gardent leur place relative dans le bâtiment. Les champs de taille sont
+`debounce`és, sans quoi chaque frappe déclencherait une mise à l'échelle
+intermédiaire (« 2 » avant « 25 »).
+
 ### Découpage du paquet `ui/`
 
 **Un dialogue = un module**, nommé `*_view.py`. L'ancien `views.py`, qui
@@ -234,7 +261,10 @@ Deux règles maintiennent ce découpage praticable :
   `campus_app`, qui l'importait en retour, cycle qui ne tenait qu'à la
   position de ce helper au milieu du bloc d'imports. Il vit maintenant dans
   `ui/uploads.py`, module neutre, sous le nom `read_uploaded_file` (sans
-  préfixe `_` : partagé, donc public).
+  préfixe `_` : partagé, donc public). `ui/dialogs.py` migre vers la même
+  signature : `open_new_building_dialog(app)` passe par `app.controller` et
+  `app.refresh_campus_selection()` (méthode rendue publique pour ça) au lieu
+  de recevoir six widgets et callbacks en paramètres.
 - **Les vues ne sont pas couvertes par les tests** (NiceGUI construit l'UI par
   effet de bord). Après un remaniement, le filet de sécurité est de lancer
   l'appli et d'ouvrir chaque dialogue — une page de test qui les construit
@@ -245,6 +275,7 @@ Deux règles maintiennent ce découpage praticable :
 - [x] Nettoyer le code redondant après modularisation
 - [x] Casser le cycle `campus_app` ↔ `ui/views` (helper `read_uploaded_file`)
 - [x] Eclater les vues vers des fichiers dédiés
+- [x] Création de bâtiments modulaires (rectangle, étages identiques) et dimensionnement à l'échelle depuis « Plan du campus »
 
 #### Idées
 
