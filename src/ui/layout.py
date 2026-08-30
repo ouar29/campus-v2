@@ -38,6 +38,15 @@ def build_sidebar(campus_app):
                 on_change=lambda e: campus_app.switch_session(e.value),
             ).classes("w-full")
 
+            # Nom du campus : c'est le champ `name` du .cps exporté, pas une
+            # simple étiquette d'affichage. Debouncé, sinon chaque frappe
+            # réécrirait data.json.
+            campus_app.campus_name_input = ui.input(
+                label="Nom du campus",
+                value=campus_app.campus.name,
+                on_change=lambda e: campus_app.rename_campus(e.value),
+            ).props("dense outlined debounce=600").classes("w-full")
+
             campus_app.version_info()
 
         # --- Sélection : où je me trouve dans le campus courant ---

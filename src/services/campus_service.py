@@ -24,6 +24,18 @@ class CampusService:
             raise ValueError("Le nom du bâtiment est requis")
         return self.campus.add_building(name.strip())
 
+    def rename_campus(self, name: str) -> str:
+        """Renomme le campus courant et retourne le nom retenu.
+
+        `Campus.name` n'est pas décoratif : c'est le champ `name` du fichier
+        `.cps` produit par `export_cps.py`, et il sert de nom par défaut au
+        fichier d'export. Un nom vide casserait les deux.
+        """
+        if not name or not name.strip():
+            raise ValueError("Le nom du campus est requis")
+        self.campus.name = name.strip()
+        return self.campus.name
+
     def create_modular_building(
         self,
         name: str,

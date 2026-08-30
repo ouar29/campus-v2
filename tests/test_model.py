@@ -166,3 +166,14 @@ def test_packaged_app_starts_empty_when_no_data_is_bundled(tmp_path, monkeypatch
 
     assert path == user_dir / "data.json"
     assert Campus.load(path).buildings == []
+
+
+def test_renamed_campus_reaches_the_cps_export():
+    """Le nom saisi dans la carte « Session » est bien celui du .cps produit."""
+    from services.campus_service import CampusService
+
+    campus = Campus(id="campus-1", name="Site")
+    campus.add_building("Bâtiment A")
+    CampusService(campus).rename_campus("Campus Nord")
+
+    assert export_campus(campus)["name"] == "Campus Nord"

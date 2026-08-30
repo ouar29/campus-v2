@@ -129,6 +129,11 @@ class CampusController:
         self.save()
         return building
 
+    def rename_campus(self, name: str) -> str:
+        renamed = self.campus_service.rename_campus(name)
+        self.save()
+        return renamed
+
     def create_modular_building(
         self,
         name: str,

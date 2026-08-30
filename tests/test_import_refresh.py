@@ -97,3 +97,48 @@ def test_welcome_is_offered_only_while_the_campus_is_empty(tmp_path):
 
     app.campus.add_building("Bâtiment A")
     assert app.should_offer_welcome() is False
+
+
+def test_renaming_the_campus_also_renames_its_session(tmp_path):
+    """L'étiquette de session vient du fichier importé, pas du modèle : sans
+    synchronisation, le sélecteur garderait l'ancien nom de fichier."""
+    from controller import CampusController
+    from model import Campus
+
+    campus = Campus(id="campus-1", name="Site")
+    app = CampusApp.__new__(CampusApp)
+    app.campus = campus
+    app.controller = CampusController(campus, str(tmp_path / "data.json"))
+    app.sessions = [{"key": "session-1", "label": "site3", "campus": campus}]
+    app.current_session_key = "session-1"
+    app.session_select = FakeSelect()
+    app.campus_name_input = None
+
+    app.rename_campus("Campus Nord")
+
+    assert campus.name == "Campus Nord"
+    assert app.sessions[0]["label"] == "Campus Nord"
+    assert app.session_select.options == {"session-1": "Campus Nord"}
+    assert app.session_select.value == "session-1"
+
+
+def test_renaming_the_campus_to_an_empty_name_is_refused(tmp_path, monkeypatch):
+    import nicegui.ui as ui
+
+    from controller import CampusController
+    from model import Campus
+
+    monkeypatch.setattr(ui, "notify", lambda *args, **kwargs: None)
+
+    campus = Campus(id="campus-1", name="Site")
+    app = CampusApp.__new__(CampusApp)
+    app.campus = campus
+    app.controller = CampusController(campus, str(tmp_path / "data.json"))
+    app.sessions = [{"key": "session-1", "label": "Site", "campus": campus}]
+    app.current_session_key = "session-1"
+    app.session_select = FakeSelect()
+    app.campus_name_input = None
+
+    app.rename_campus("")
+
+    assert campus.name == "Site"

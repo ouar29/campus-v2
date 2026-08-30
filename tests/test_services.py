@@ -188,3 +188,17 @@ def test_geometry_editor_caps_the_undo_stack():
     for _ in range(3):
         assert editor.undo(floor) is True
     assert editor.undo(floor) is False
+
+
+def test_campus_service_rename_campus_trims_and_rejects_empty():
+    campus = Campus(id="campus-1", name="Ancien nom")
+    service = CampusService(campus)
+
+    assert service.rename_campus("  Campus Nord  ") == "Campus Nord"
+    assert campus.name == "Campus Nord"
+
+    # Le nom part dans le champ `name` du .cps exporté : le vider casserait
+    # l'export et le nom de fichier proposé.
+    with pytest.raises(ValueError):
+        service.rename_campus("   ")
+    assert campus.name == "Campus Nord"

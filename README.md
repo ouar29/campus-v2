@@ -244,6 +244,24 @@ positionnement. Côté campus-v2 :
 - `export_cps.py` exclut ce bâtiment placeholder de tout export, pour ne
   jamais propager de salles sans géométrie réelle vers le format externe.
 
+### Nom du campus et sessions
+
+La carte **Session** de la barre latérale porte un champ **Nom du campus**
+qui édite `Campus.name` — pas une étiquette d'affichage : c'est le champ
+`name` du `.cps` produit par `export_cps.py`, et le nom de fichier proposé
+par défaut à l'export. `CampusService.rename_campus()` refuse donc un nom
+vide, qui casserait les deux.
+
+L'étiquette du sélecteur de session, elle, vient du **nom du fichier
+importé** (`add_session()`), pas du modèle. Renommer le campus renomme aussi
+la session qui le porte (`CampusApp.rename_campus()`), sans quoi le sélecteur
+continuerait d'afficher l'ancien nom de fichier pour un campus qui s'exporte
+désormais sous un autre nom. Le champ est `debounce`é et ignore un renommage
+vers le nom déjà en place : `refresh_campus_selection()` repousse la valeur
+dans le champ à chaque changement de session, ce qui déclenche son
+`on_change` — sans ce garde-fou, changer de session réécrirait `data.json`
+pour un renommage sans effet.
+
 ### Annulation des éditions de contour
 
 Chaque geste sur un contour (glisser un sommet, en ajouter un sur une arête,
@@ -337,6 +355,7 @@ Deux règles maintiennent ce découpage praticable :
 - [x] Création de bâtiments modulaires (rectangle, étages identiques) et dimensionnement à l'échelle depuis « Plan du campus »
 - [x] Annuler les éditions de contour d'étage (pile par session + Ctrl+Z)
 - [x] Délister `data.json` et accueillir un campus vide par une proposition d'import
+- [x] Éditer le nom du campus (celui qui part dans le `.cps` exporté)
 
 #### Idées
 
