@@ -112,10 +112,9 @@ def test_renaming_the_campus_also_renames_its_session(tmp_path):
     app.sessions = [{"key": "session-1", "label": "site3", "campus": campus}]
     app.current_session_key = "session-1"
     app.session_select = FakeSelect()
-    app.campus_name_input = None
+    app.campus_name_view = None
 
-    app.rename_campus("Campus Nord")
-
+    assert app.rename_campus("Campus Nord") is True
     assert campus.name == "Campus Nord"
     assert app.sessions[0]["label"] == "Campus Nord"
     assert app.session_select.options == {"session-1": "Campus Nord"}
@@ -137,8 +136,8 @@ def test_renaming_the_campus_to_an_empty_name_is_refused(tmp_path, monkeypatch):
     app.sessions = [{"key": "session-1", "label": "Site", "campus": campus}]
     app.current_session_key = "session-1"
     app.session_select = FakeSelect()
-    app.campus_name_input = None
+    app.campus_name_view = None
 
-    app.rename_campus("")
-
+    # Le nom refusé garde le champ de saisie ouvert côté UI.
+    assert app.rename_campus("") is False
     assert campus.name == "Site"

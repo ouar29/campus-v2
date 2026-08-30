@@ -39,13 +39,50 @@ def build_sidebar(campus_app):
             ).classes("w-full")
 
             # Nom du campus : c'est le champ `name` du .cps exporté, pas une
-            # simple étiquette d'affichage. Debouncé, sinon chaque frappe
-            # réécrirait data.json.
-            campus_app.campus_name_input = ui.input(
-                label="Nom du campus",
-                value=campus_app.campus.name,
-                on_change=lambda e: campus_app.rename_campus(e.value),
-            ).props("dense outlined debounce=600").classes("w-full")
+            # simple étiquette d'affichage. Il s'affiche en lecture, et le
+            # crayon révèle le champ de saisie — le renommage est un geste
+            # délibéré, pas une frappe qui réécrit data.json au fil de l'eau.
+            name_state = {"editing": False}
+
+            @ui.refreshable
+            def campus_name_view() -> None:
+                if not name_state["editing"]:
+                    with ui.row().classes("items-center gap-1 w-full no-wrap"):
+                        ui.label(campus_app.campus.name or "Campus sans nom").classes(
+                            "text-sm font-medium text-indigo-800 dark:text-indigo-100 truncate grow"
+                        ).tooltip(campus_app.campus.name)
+                        ui.button(icon="edit", on_click=start_edit).props(
+                            "flat dense round size=sm color=indigo"
+                        ).tooltip("Renommer le campus")
+                    return
+
+                name_input = ui.input(label="Nom du campus", value=campus_app.campus.name).props(
+                    "dense outlined autofocus"
+                ).classes("w-full")
+                # Entrée valide, comme dans n'importe quel champ de renommage.
+                name_input.on("keydown.enter", lambda _: confirm(name_input.value))
+                with ui.row().classes("justify-end w-full gap-1"):
+                    ui.button("Annuler", on_click=stop_edit).props("flat dense size=sm")
+                    ui.button(
+                        "Renommer", on_click=lambda: confirm(name_input.value)
+                    ).props("dense size=sm color=primary")
+
+            def start_edit() -> None:
+                name_state["editing"] = True
+                campus_name_view.refresh()
+
+            def stop_edit() -> None:
+                name_state["editing"] = False
+                campus_name_view.refresh()
+
+            def confirm(value: str) -> None:
+                # Un nom refusé (vide) garde le champ ouvert : l'utilisateur
+                # doit pouvoir corriger sans rouvrir l'édition.
+                if campus_app.rename_campus(value):
+                    stop_edit()
+
+            campus_app.campus_name_view = campus_name_view
+            campus_name_view()
 
             campus_app.version_info()
 

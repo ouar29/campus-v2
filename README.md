@@ -246,21 +246,25 @@ positionnement. Côté campus-v2 :
 
 ### Nom du campus et sessions
 
-La carte **Session** de la barre latérale porte un champ **Nom du campus**
-qui édite `Campus.name` — pas une étiquette d'affichage : c'est le champ
-`name` du `.cps` produit par `export_cps.py`, et le nom de fichier proposé
-par défaut à l'export. `CampusService.rename_campus()` refuse donc un nom
-vide, qui casserait les deux.
+La carte **Session** de la barre latérale affiche le nom du campus en
+lecture, avec un crayon qui révèle le champ de saisie (`campus_name_view`,
+un `@ui.refreshable` local à `build_sidebar`, dont l'état d'édition tient
+dans un simple dict). Le renommage est ainsi un geste délibéré — validé par
+Entrée ou par le bouton, annulable — plutôt qu'une frappe qui réécrit
+`data.json` au fil de l'eau.
+
+Le champ édite `Campus.name`, qui n'est pas une étiquette d'affichage : c'est
+le champ `name` du `.cps` produit par `export_cps.py`, et le nom de fichier
+proposé par défaut à l'export. `CampusService.rename_campus()` refuse donc un
+nom vide, qui casserait les deux, et `CampusApp.rename_campus()` retourne
+`False` dans ce cas pour que la saisie reste ouverte — l'utilisateur corrige
+sans avoir à rouvrir l'édition.
 
 L'étiquette du sélecteur de session, elle, vient du **nom du fichier
 importé** (`add_session()`), pas du modèle. Renommer le campus renomme aussi
-la session qui le porte (`CampusApp.rename_campus()`), sans quoi le sélecteur
-continuerait d'afficher l'ancien nom de fichier pour un campus qui s'exporte
-désormais sous un autre nom. Le champ est `debounce`é et ignore un renommage
-vers le nom déjà en place : `refresh_campus_selection()` repousse la valeur
-dans le champ à chaque changement de session, ce qui déclenche son
-`on_change` — sans ce garde-fou, changer de session réécrirait `data.json`
-pour un renommage sans effet.
+la session qui le porte, sans quoi le sélecteur continuerait d'afficher
+l'ancien nom de fichier pour un campus qui s'exporte désormais sous un autre
+nom.
 
 ### Annulation des éditions de contour
 

@@ -146,7 +146,7 @@ class CampusApp:
         self.building_select = None
         self.floor_select = None
         self.session_select = None
-        self.campus_name_input = None
+        self.campus_name_view = None
         self.plan_container = None
 
     def _ensure_session_state(self) -> None:
@@ -173,30 +173,33 @@ class CampusApp:
                 self.current_session_key,
             )
 
-    def rename_campus(self, name: str) -> None:
+    def rename_campus(self, name: str) -> bool:
         """Renomme le campus courant, et avec lui la session qui le porte.
 
         L'étiquette de session vient du nom du fichier importé, pas du
         modèle : sans cette synchronisation, renommer le campus laisserait le
         sélecteur de session afficher l'ancien nom de fichier, pour un campus
         qui s'exporte désormais sous un autre nom.
+
+        Retourne False si le nom a été refusé, pour que l'appelant garde le
+        champ de saisie ouvert plutôt que de fermer sur une erreur.
         """
         if name and name.strip() == self.campus.name:
-            # refresh_campus_selection() repousse la valeur dans le champ, ce
-            # qui déclenche on_change : sans ce garde-fou, changer de session
-            # réécrirait data.json pour un renommage sans effet.
-            return
+            return True
         try:
             renamed = self.controller.rename_campus(name)
         except ValueError as exc:
             ui.notify(str(exc), color="warning")
-            return
+            return False
         for session in self.sessions:
             if session["campus"] is self.campus:
                 session["label"] = renamed
         if self.session_select is not None:
             self.session_select.set_options(self.session_options())
             self.session_select.value = self.current_session_key
+        if getattr(self, "campus_name_view", None) is not None:
+            self.campus_name_view.refresh()
+        return True
 
     def session_options(self) -> dict[str, str]:
         return {session["key"]: session["label"] for session in self.sessions}
@@ -638,8 +641,8 @@ class CampusApp:
         if hasattr(self, "session_select") and self.session_select is not None:
             self.session_select.set_options(self.session_options())
             self.session_select.value = self.current_session_key
-        if getattr(self, "campus_name_input", None) is not None:
-            self.campus_name_input.value = self.campus.name
+        if getattr(self, "campus_name_view", None) is not None:
+            self.campus_name_view.refresh()
         if self.building_select is not None:
             self.building_select.set_options(self.buildings_options())
             current_building_id = self.state["building"].id if self.state["building"] else None
