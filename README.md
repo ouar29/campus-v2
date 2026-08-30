@@ -66,7 +66,7 @@ flowchart TB
 
     subgraph Domaine["Logique métier"]
         controller["controller.py<br/>CampusController : sélection, orchestration"]
-        services["services/*.py<br/>CampusService · FloorService · RoomService"]
+        services["services/*.py<br/>CampusService · FloorService · RoomService<br/>FloorGeometryEditor (pile d'annulation)"]
         model["model.py<br/>Campus · Building · Floor · Room · Gestionnaire"]
     end
 
@@ -215,6 +215,36 @@ positionnement. Côté campus-v2 :
 - `export_cps.py` exclut ce bâtiment placeholder de tout export, pour ne
   jamais propager de salles sans géométrie réelle vers le format externe.
 
+### Annulation des éditions de contour
+
+Chaque geste sur un contour (glisser un sommet, en ajouter un sur une arête,
+en supprimer un au double-clic) réécrit `data.json` immédiatement : un sommet
+déplacé ou supprimé par erreur serait donc perdu. `FloorGeometryEditor`
+(dans `services/floor_service.py`) tient une pile d'annulation pour ça, et le
+mode édition affiche deux boutons en plus de « Terminer l'édition » :
+
+- **Annuler** (`Ctrl+Z`, via un `ui.keyboard` enregistré dans la barre
+  d'édition, donc retiré avec elle quand on quitte le mode) revient d'un
+  geste en arrière ;
+- **Rétablir l'état initial** revient au contour tel qu'il était à
+  l'ouverture de l'édition. Ce retour est lui-même empilé : un « rétablir »
+  malencontreux s'annule comme n'importe quel geste.
+
+Deux subtilités valent d'être connues avant de toucher à `on_mouse` :
+
+- **Le point de reprise est pris au `mousedown`**, avant le glisser, puis
+  jeté au `mouseup` si le contour n'a finalement pas bougé
+  (`discard_if_unchanged`). Sans ce ménage, un simple clic sur un sommet —
+  et donc chaque moitié d'un double-clic de suppression — empilerait une
+  étape d'annulation sans effet.
+- **La pile est attachée à une session** : un étage, de « Éditer le
+  contour » à « Terminer ». Changer d'étage sans quitter le mode ouvre une
+  session neuve (`ensure_geometry_session()`, appelé au rendu du plan), pour
+  qu'une annulation ne puisse jamais restaurer un contour sur le mauvais
+  étage. Elle vit en mémoire et ne survit pas au redémarrage : c'est un
+  filet de sécurité sur le geste en cours, pas l'historique global du campus
+  qui reste une idée ouverte plus bas.
+
 ### Bâtiments modulaires et mise à l'échelle
 
 Dessiner un contour à la souris étage par étage est le mode « sur mesure »,
@@ -276,6 +306,7 @@ Deux règles maintiennent ce découpage praticable :
 - [x] Casser le cycle `campus_app` ↔ `ui/views` (helper `read_uploaded_file`)
 - [x] Eclater les vues vers des fichiers dédiés
 - [x] Création de bâtiments modulaires (rectangle, étages identiques) et dimensionnement à l'échelle depuis « Plan du campus »
+- [x] Annuler les éditions de contour d'étage (pile par session + Ctrl+Z)
 
 #### Idées
 
@@ -296,4 +327,4 @@ Navigation inverse : dans la table "Toutes les salles" (ou la fiche détaillée)
 - Statistiques simples : capacité totale par bâtiment/étage, nombre de salles par gestionnaire — un petit dashboard, potentiellement dans le dialog "Plan du campus" existant.
 
 **5. Robustesse**
-- Historique/undo : actuellement chaque modification sauvegarde immédiatement (app.save()), sans possibilité de revenir en arrière. Un simple undo sur la dernière action, ou un horodatage de sauvegarde automatique avec restauration, sécuriserait les manipulations en masse (import, édition groupée).
+- Historique/undo global : l'annulation existe pour l'édition d'un contour d'étage (voir plus haut), mais toutes les autres modifications sauvegardent immédiatement (`app.save()`) sans retour en arrière. Étendre le principe aux salles, aux gestionnaires et aux redimensionnements de bâtiment — ou un horodatage de sauvegarde automatique avec restauration — sécuriserait les manipulations en masse (import, édition groupée).

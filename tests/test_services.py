@@ -2,7 +2,7 @@ import pytest
 
 from model import Campus
 from services.campus_service import CampusService
-from services.floor_service import FloorService
+from services.floor_service import FloorGeometryEditor, FloorService
 from services.room_service import RoomService
 
 
@@ -100,3 +100,91 @@ def test_campus_service_resize_building_rejects_building_without_polygon():
 
     with pytest.raises(ValueError):
         service.resize_building(building, 10, 10)
+
+
+SQUARE = [[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0]]
+
+
+def _floor_with_square():
+    campus = Campus(id="campus-1", name="Campus")
+    building = campus.add_building("Bâtiment")
+    return building.add_floor("RDC", [list(p) for p in SQUARE], level=0)
+
+
+def test_geometry_editor_undoes_vertex_moves_in_reverse_order():
+    floor = _floor_with_square()
+    editor = FloorGeometryEditor()
+    editor.begin(floor)
+
+    editor.push(floor)
+    floor.polygon[2] = [20.0, 10.0]
+    editor.push(floor)
+    floor.polygon.pop(0)
+
+    assert editor.undo(floor) is True
+    assert floor.polygon == [[0.0, 0.0], [10.0, 0.0], [20.0, 10.0], [0.0, 10.0]]
+    assert editor.undo(floor) is True
+    assert floor.polygon == SQUARE
+    assert editor.undo(floor) is False
+
+
+def test_geometry_editor_discards_snapshot_when_nothing_moved():
+    floor = _floor_with_square()
+    editor = FloorGeometryEditor()
+    editor.begin(floor)
+
+    # Un clic sur un sommet sans déplacement : le point de reprise est jeté.
+    editor.push(floor)
+    assert editor.discard_if_unchanged(floor) is True
+    assert editor.can_undo(floor) is False
+
+    editor.push(floor)
+    floor.polygon[0] = [1.0, 1.0]
+    assert editor.discard_if_unchanged(floor) is False
+    assert editor.can_undo(floor) is True
+
+
+def test_geometry_editor_reset_returns_to_session_start_and_is_undoable():
+    floor = _floor_with_square()
+    editor = FloorGeometryEditor()
+    editor.begin(floor)
+
+    editor.push(floor)
+    floor.polygon.append([5.0, 15.0])
+    edited = [list(p) for p in floor.polygon]
+
+    assert editor.reset(floor) is True
+    assert floor.polygon == SQUARE
+    assert editor.can_reset(floor) is False
+    # Un « rétablir » malencontreux se rattrape comme n'importe quel geste.
+    assert editor.undo(floor) is True
+    assert floor.polygon == edited
+
+
+def test_geometry_editor_session_is_scoped_to_one_floor():
+    floor = _floor_with_square()
+    other = _floor_with_square()
+    editor = FloorGeometryEditor()
+    editor.begin(floor)
+    editor.push(floor)
+    floor.polygon.pop()
+
+    # Passer sur un autre étage repart de zéro : aucune annulation croisée.
+    assert editor.can_undo(other) is False
+    assert editor.undo(other) is False
+    editor.ensure_session(other)
+    assert editor.can_undo(floor) is False
+
+
+def test_geometry_editor_caps_the_undo_stack():
+    floor = _floor_with_square()
+    editor = FloorGeometryEditor(max_steps=3)
+    editor.begin(floor)
+    for i in range(6):
+        editor.push(floor)
+        floor.polygon[0] = [float(i), 0.0]
+
+    assert len(editor.stack) == 3
+    for _ in range(3):
+        assert editor.undo(floor) is True
+    assert editor.undo(floor) is False

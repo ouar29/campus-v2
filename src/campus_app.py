@@ -255,12 +255,40 @@ class CampusApp:
             return
         self.state["mode"] = "editing_geometry"
         self.state["dragging_vertex_index"] = None
+        self.controller.begin_geometry_edit(self.state["floor"])
         self.render_plan_area()
 
     def stop_geometry_edit(self) -> None:
         self.state["mode"] = None
         self.state["dragging_vertex_index"] = None
+        self.controller.end_geometry_edit()
         self.render_plan_area()
+
+    def undo_geometry_edit(self) -> None:
+        floor = self.state["floor"]
+        if floor is None:
+            return
+        if not self.controller.undo_geometry_edit(floor):
+            ui.notify("Rien à annuler sur ce contour", color="info")
+            return
+        self.render_plan_area()
+
+    def reset_geometry_edit(self) -> None:
+        floor = self.state["floor"]
+        if floor is None:
+            return
+        if not self.controller.reset_geometry_edit(floor):
+            ui.notify("Le contour est déjà dans son état de départ", color="info")
+            return
+        ui.notify("Contour rétabli tel qu'à l'ouverture de l'édition")
+        self.render_plan_area()
+
+    def on_geometry_key(self, e: events.KeyEventArguments) -> None:
+        """Ctrl+Z pendant l'édition d'un contour."""
+        if self.state["mode"] != "editing_geometry":
+            return
+        if e.action.keydown and (e.modifiers.ctrl or e.modifiers.meta) and e.key == "z":
+            self.undo_geometry_edit()
 
     def render_plan_area(self) -> None:
         if self.plan_container is None:
@@ -295,6 +323,10 @@ class CampusApp:
                 return
 
             if mode == "editing_geometry":
+                # Rester en mode édition tout en changeant d'étage ouvre une
+                # nouvelle session : la pile d'annulation ne doit jamais
+                # restaurer un contour sur le mauvais étage.
+                self.controller.ensure_geometry_session(floor)
                 origin_x, origin_y, w_units, h_units = transform_for_floor(floor)
                 text_scale = text_scale_for_canvas(w_units)
                 with ui.row().classes("items-center gap-2 mb-2"):
@@ -302,7 +334,12 @@ class CampusApp:
                         "Édition du contour — glisse un sommet (orange), double-clique dessus pour le "
                         "supprimer, clique sur une arête pour y ajouter un sommet"
                     ).classes("text-sm text-gray-600 dark:text-gray-300")
+                    ui.button("Annuler", icon="undo", on_click=self.undo_geometry_edit).props("size=sm outline").tooltip("Annuler la dernière modification du contour (Ctrl+Z)")
+                    ui.button("Rétablir l'état initial", icon="restart_alt", on_click=self.reset_geometry_edit).props("size=sm outline").tooltip("Revenir au contour tel qu'il était à l'ouverture de l'édition")
                     ui.button("Terminer l'édition", on_click=self.stop_geometry_edit).props("size=sm color=primary")
+                # Le clavier est enregistré ici, donc retiré avec le reste de
+                # la barre quand on quitte le mode édition.
+                ui.keyboard(on_key=self.on_geometry_key)
                 bg = blank_background(w_units, h_units)
                 img = ui.interactive_image(
                     bg,
@@ -348,6 +385,7 @@ class CampusApp:
             if e.type == "dblclick":
                 idx, dist = nearest_vertex(floor.polygon, wx, wy)
                 if idx is not None and dist <= VERTEX_DRAG_THRESHOLD and len(floor.polygon) > 3:
+                    self.controller.snapshot_geometry(floor)
                     floor.polygon.pop(idx)
                     self.save()
                     redraw_edit()
@@ -358,11 +396,15 @@ class CampusApp:
             if e.type == "mousedown":
                 idx, dist = nearest_vertex(floor.polygon, wx, wy)
                 if idx is not None and dist <= VERTEX_DRAG_THRESHOLD:
+                    # Le point de reprise est pris avant le glisser ; s'il
+                    # s'avère n'être qu'un clic, le mouseup le jettera.
+                    self.controller.snapshot_geometry(floor)
                     self.state["dragging_vertex_index"] = idx
                     return
                 insertion = nearest_edge_insertion(floor.polygon, wx, wy, EDGE_INSERT_THRESHOLD)
                 if insertion is not None:
                     insert_idx, point = insertion
+                    self.controller.snapshot_geometry(floor)
                     floor.polygon.insert(insert_idx, [round(point[0], 2), round(point[1], 2)])
                     self.state["dragging_vertex_index"] = insert_idx
                     self.save()
@@ -379,6 +421,7 @@ class CampusApp:
 
             if e.type == "mouseup":
                 if self.state.get("dragging_vertex_index") is not None:
+                    self.controller.discard_unchanged_geometry(floor)
                     self.save()
                     self.state["dragging_vertex_index"] = None
                 return

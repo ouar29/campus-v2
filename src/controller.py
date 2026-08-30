@@ -4,7 +4,7 @@ import uuid
 
 from model import Campus, Building, Floor, Gestionnaire, Room
 from services.campus_service import CampusService
-from services.floor_service import FloorService
+from services.floor_service import FloorGeometryEditor, FloorService
 from services.room_service import RoomService
 
 
@@ -15,6 +15,7 @@ class CampusController:
         self.campus_service = CampusService(campus)
         self.floor_service = FloorService(campus)
         self.room_service = RoomService(campus)
+        self.geometry_editor = FloorGeometryEditor()
 
         self.state: dict = {
             "building": campus.buildings[0] if campus.buildings else None,
@@ -161,6 +162,37 @@ class CampusController:
         self.state["floor"] = floor
         self.save()
         return floor
+
+    # ---------- Édition du contour d'un étage (avec annulation) ----------
+
+    def begin_geometry_edit(self, floor: Floor) -> None:
+        self.geometry_editor.begin(floor)
+
+    def end_geometry_edit(self) -> None:
+        self.geometry_editor.end()
+
+    def ensure_geometry_session(self, floor: Floor) -> None:
+        """Repart d'une session vierge si l'étage édité a changé en cours de route."""
+        self.geometry_editor.ensure_session(floor)
+
+    def snapshot_geometry(self, floor: Floor) -> None:
+        """À appeler juste avant chaque modification du contour."""
+        self.geometry_editor.push(floor)
+
+    def discard_unchanged_geometry(self, floor: Floor) -> None:
+        self.geometry_editor.discard_if_unchanged(floor)
+
+    def undo_geometry_edit(self, floor: Floor) -> bool:
+        if not self.geometry_editor.undo(floor):
+            return False
+        self.save()
+        return True
+
+    def reset_geometry_edit(self, floor: Floor) -> bool:
+        if not self.geometry_editor.reset(floor):
+            return False
+        self.save()
+        return True
 
     def create_room(self, floor: Floor, name: str, capacity: int, position) -> None:
         self.room_service.create_room(floor, name, capacity, position)
