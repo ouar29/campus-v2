@@ -124,3 +124,29 @@ def test_modular_building_footprint_matches_position_and_size():
         [125.0, 48.0],
         [100.0, 48.0],
     ]
+
+
+def test_iso_view_floors_are_thin_slabs_and_never_intersect():
+    from iso_view import FLOOR_HEIGHT, SLAB_THICKNESS
+
+    # L'épaisseur d'une dalle doit rester inférieure à l'espacement entre
+    # niveaux, sinon les étages se traversent au lieu de s'empiler.
+    assert 0 < SLAB_THICKNESS < FLOOR_HEIGHT
+
+
+def test_iso_view_draws_floor_labels_above_every_slab():
+    """Les niveaux étant serrés, une dalle masquerait l'étiquette du dessous."""
+    from iso_view import build_overview_svg
+    from services.campus_service import CampusService
+
+    campus = Campus(id="campus-1", name="Campus")
+    CampusService(campus).create_modular_building("Tour", 20, 10, floor_count=3)
+
+    svg = build_overview_svg(campus)
+
+    # La grille au sol est faite de <line>, donc tous les <polygon> du SVG
+    # sont des faces d'étage : la dernière doit précéder la première
+    # étiquette (l'ordre du document est l'ordre de peinture).
+    assert svg.rindex("<polygon") < svg.index(">RDC<")
+    for name in ("RDC", "1er étage", "2e étage"):
+        assert f">{name}<" in svg

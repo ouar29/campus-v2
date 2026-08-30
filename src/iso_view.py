@@ -29,8 +29,15 @@ ISO_COS30 = math.cos(math.radians(30))
 ISO_SIN30 = math.sin(math.radians(30))
 
 FOOTPRINT_SIZE = 18.0     # taille schématique (unités monde) de l'empreinte normalisée d'un étage (agrandie)
-FLOOR_HEIGHT = 11.0       # espacement vertical entre étages (agrandi, effet plus imposant)
-SLAB_THICKNESS = 2.2      # épaisseur visuelle de la "dalle" d'un étage
+# Les étages sont des dalles fines et rapprochées : à 2.2 d'épaisseur pour
+# 11 d'espacement, les niveaux flottaient loin les uns des autres et se
+# lisaient comme des plaques épaisses empilées en l'air plutôt que comme un
+# bâtiment. L'épaisseur est divisée par 5 et l'espacement resserré davantage
+# encore, pour un jour (FLOOR_HEIGHT - SLAB_THICKNESS) d'environ 2,5 fois
+# l'épaisseur de la dalle au lieu de 4 fois.
+FLOOR_HEIGHT = 1.6        # espacement vertical entre étages (d'un dessous de dalle au suivant)
+SLAB_THICKNESS = 0.44     # épaisseur visuelle de la "dalle" d'un étage
+FLOOR_LABEL_FONT_SIZE = 18  # étiquette d'étage (réduite : les niveaux sont désormais serrés)
 TOP_FACE_OPACITY = 0.72   # transparence de la face supérieure (couleur de l'étage)
 WALL_OPACITY = 0.85       # transparence des parois latérales
 OVERVIEW_SCALE = 16       # pixels par unité monde
@@ -256,6 +263,12 @@ def _build_overview(campus: Campus, angle_deg: float = 0.0) -> tuple[str, float,
         color = ISO_PALETTE[hash(building.id) % len(ISO_PALETTE)]
         wall_color = _darken(color)
 
+        # Les étiquettes d'étage sont accumulées et dessinées après toutes les
+        # dalles du bâtiment : maintenant que les niveaux sont rapprochés, la
+        # dalle du dessus recouvrirait sinon l'étiquette de celle du dessous
+        # (l'ordre de peinture du SVG est l'ordre du document).
+        floor_labels: list[str] = []
+
         for floor in building.floors:
             local_pts = _normalize_polygon(floor.polygon)
             world_pts = [(bx + x, by + y) for x, y in local_pts]
@@ -290,11 +303,13 @@ def _build_overview(campus: Campus, angle_deg: float = 0.0) -> tuple[str, float,
             # Étiquette étage (centre approximatif de la face supérieure)
             cx = sum(p[0] for p in top_proj) / n
             cy = sum(p[1] for p in top_proj) / n
-            elements.append(
-                f'<text x="{cx}" y="{cy}" font-size="24" text-anchor="middle" '
+            floor_labels.append(
+                f'<text x="{cx}" y="{cy}" font-size="{FLOOR_LABEL_FONT_SIZE}" text-anchor="middle" '
                 f'dominant-baseline="middle" fill="{TEXT_PRIMARY}" font-weight="700" paint-order="stroke" '
                 f'stroke="{ISO_LABEL_HALO}" stroke-width="4" stroke-linejoin="round">{floor.name}</text>'
             )
+
+        elements.extend(floor_labels)
 
         # Étiquette bâtiment, bien visible sous la base du rez-de-chaussée
         # (halo sombre autour du texte pour rester lisible quelle que soit la couleur derrière)

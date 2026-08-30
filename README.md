@@ -125,6 +125,16 @@ Points clés :
 - **`rendering.py` / `geometry.py`** transforment le modèle en SVG (le plan
   affiché est une image SVG encodée en data URI, redessinée à chaque
   interaction) ; ils ne modifient jamais le modèle.
+- **`iso_view.py`** empile les étages en volume : `SLAB_THICKNESS` est
+  l'épaisseur d'une dalle, `FLOOR_HEIGHT` l'espacement d'un dessous de dalle
+  au suivant. Les dalles sont volontairement fines et rapprochées (0.44 pour
+  1.6) — avec les valeurs épaisses d'origine (2.2 pour 11), les niveaux
+  flottaient loin les uns des autres au lieu de se lire comme un bâtiment.
+  Deux invariants à préserver en retouchant ces constantes : `SLAB_THICKNESS`
+  doit rester inférieur à `FLOOR_HEIGHT` (sinon les étages se traversent), et
+  les étiquettes d'étage sont émises **après toutes les dalles** du bâtiment,
+  car l'ordre du document SVG est l'ordre de peinture — dessinées au fil des
+  étages, elles seraient recouvertes par la dalle du dessus.
 - **`theme.py` est la source unique des couleurs.** Il est volontairement
   sans dépendance à NiceGUI, pour être importable par la couche de rendu SVG
   (`rendering.py`, `iso_view.py`) autant que par `ui/theme.py`, qui se limite
