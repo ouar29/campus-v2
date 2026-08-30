@@ -37,7 +37,7 @@
     },
     "RoomManager": {
       "type": "object",
-      "required": ["name", "telephoneNumber", "email"],
+      "required": ["name", "telephoneNumber"],
       "additionalProperties": false,
       "properties": {
         "name": { "type": "string" },
@@ -91,8 +91,8 @@
         "zone": { "type": "string" },
         "roomType": {
           "type": "string",
-          "enum": ["meetingRoom"],
-          "description": "Verrouillé volontairement sur la seule valeur confirmée à ce jour. But recherché : toute salle avec un roomType différent fera échouer la validation lors de l'intégration avec un fichier réel, pour repérer explicitement les nouvelles valeurs à ajouter à cet enum plutôt que de les laisser passer silencieusement."
+          "enum": ["meetingRoom", "storage"],
+          "description": "Verrouillé volontairement sur les seules valeurs confirmées à ce jour. But recherché : toute salle avec un roomType différent fera échouer la validation lors de l'intégration avec un fichier réel, pour repérer explicitement les nouvelles valeurs à ajouter à cet enum plutôt que de les laisser passer silencieusement."
         },
         "telephoneNumber": { "type": "string" },
         "type": {
