@@ -1,7 +1,33 @@
 from __future__ import annotations
 
 from geometry import polygon_centroid
-from model import Floor, Room
+from model import PENDING_BUILDING_NAME, Building, Floor, Room
+
+# --- Prédicats d'intérêt sur une salle -----------------------------------
+# Ils décrivent des situations métier ("cette salle a un problème", "cette
+# salle attend un traitement"), pas une mise en forme : la table des salles
+# les assemble en filtres prédéfinis, mais ils restent utilisables ailleurs
+# (rapport d'intégrité, export). Fonctions libres plutôt que méthodes : elles
+# ne dépendent que de l'entité passée, pas du campus.
+
+
+def is_unavailable(room: Room) -> bool:
+    """Salle marquée indisponible dans le `.cps` d'origine (`extra.available`)."""
+    return not room.extra.get("available", True)
+
+
+def has_no_gestionnaire(room: Room) -> bool:
+    return not room.gestionnaire_ids
+
+
+def has_suspicious_capacity(room: Room) -> bool:
+    """Capacité absente ou nulle : typiquement une salle importée à trous."""
+    return not room.capacity or room.capacity <= 0
+
+
+def is_awaiting_placement(building: Building) -> bool:
+    """Salle encore dans le bâtiment placeholder de campus-factory."""
+    return building.name == PENDING_BUILDING_NAME
 
 
 class RoomService:

@@ -202,3 +202,65 @@ def test_campus_service_rename_campus_trims_and_rejects_empty():
     with pytest.raises(ValueError):
         service.rename_campus("   ")
     assert campus.name == "Campus Nord"
+
+
+def test_room_predicates_used_by_the_predefined_filters():
+    from model import PENDING_BUILDING_NAME
+    from services.room_service import (
+        has_no_gestionnaire,
+        has_suspicious_capacity,
+        is_awaiting_placement,
+        is_unavailable,
+    )
+
+    campus = Campus(id="campus-1", name="Campus")
+    building = campus.add_building("Bâtiment A")
+    floor = building.add_floor("RDC", SQUARE, level=0)
+    room = floor.add_room("Salle A", 10, [1.0, 1.0])
+
+    # Une salle saine ne remonte dans aucun filtre.
+    assert is_unavailable(room) is False
+    assert has_suspicious_capacity(room) is False
+    assert is_awaiting_placement(building) is False
+    # ... sauf « sans gestionnaire », tant qu'aucun n'est assigné.
+    assert has_no_gestionnaire(room) is True
+
+    room.gestionnaire_ids = ["gest-1"]
+    assert has_no_gestionnaire(room) is False
+
+    # `available` vient du .cps d'origine, conservé dans extra.
+    room.extra["available"] = False
+    assert is_unavailable(room) is True
+
+    room.capacity = 0
+    assert has_suspicious_capacity(room) is True
+
+    placeholder = campus.add_building(PENDING_BUILDING_NAME)
+    assert is_awaiting_placement(placeholder) is True
+
+
+def test_predefined_filters_combine_cumulatively():
+    """Deux filtres actifs restreignent, ils ne s'additionnent pas."""
+    from ui.room_table_view import PREDEFINED_FILTERS
+
+    campus = Campus(id="campus-1", name="Campus")
+    building = campus.add_building("Bâtiment A")
+    floor = building.add_floor("RDC", SQUARE, level=0)
+    indisponible = floor.add_room("Indispo", 10, [1.0, 1.0])
+    indisponible.extra["available"] = False
+    indisponible.gestionnaire_ids = ["gest-1"]
+    floor.add_room("Sans gestionnaire", 10, [2.0, 2.0])
+
+    predicates = {key: predicate for key, _, _, predicate in PREDEFINED_FILTERS}
+
+    def matching(active):
+        return [
+            room.name
+            for room in floor.rooms
+            if all(predicates[key](building, floor, room) for key in active)
+        ]
+
+    assert matching({"unavailable"}) == ["Indispo"]
+    assert matching({"no_gestionnaire"}) == ["Sans gestionnaire"]
+    # Aucune salle n'est à la fois indisponible et sans gestionnaire.
+    assert matching({"unavailable", "no_gestionnaire"}) == []

@@ -143,6 +143,13 @@ class Building:
 
 BUILDING_DEFAULT_SPACING = 20.0
 
+# Nom du bâtiment placeholder créé par campus-factory pour les salles issues
+# d'un import Excel en attente de positionnement manuel (voir campus-factory,
+# merge_engine.PENDING_BUILDING_NAME). C'est une convention de données, pas
+# une règle d'export : `export_cps.py` s'en sert pour ne jamais ré-exporter
+# ces salles sans géométrie réelle, et la table des salles pour les filtrer.
+PENDING_BUILDING_NAME = "À positionner (campus-factory)"
+
 
 @dataclass
 class Campus:

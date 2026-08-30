@@ -23,16 +23,9 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from model import Campus, Building, Floor, Gestionnaire, Room
+from model import PENDING_BUILDING_NAME, Campus, Building, Floor, Gestionnaire, Room
 
 _id_counter = itertools.count(900_000)  # ids synthétiques pour les entités créées dans l'appli
-
-# Nom du bâtiment placeholder créé par campus-factory pour les salles issues
-# d'un import Excel en attente de positionnement manuel (voir campus-factory,
-# merge_engine.PENDING_BUILDING_NAME) : il ne doit jamais être ré-exporté tel
-# quel, ses salles n'ayant pas de géométrie réelle tant qu'elles n'ont pas été
-# repositionnées sur un vrai étage dans cette appli.
-PENDING_BUILDING_NAME = "À positionner (campus-factory)"
 
 
 def _default_location() -> dict:

@@ -247,6 +247,37 @@ positionnement. Côté campus-v2 :
 - `export_cps.py` exclut ce bâtiment placeholder de tout export, pour ne
   jamais propager de salles sans géométrie réelle vers le format externe.
 
+### Filtres prédéfinis de la table des salles
+
+La recherche textuelle de « Toutes les salles » répond à « où est cette
+salle ? ». Les filtres prédéfinis répondent à la question inverse — « quelles
+salles demandent mon attention ? » — typiquement après un import massif :
+**Indisponibles**, **Sans gestionnaire**, **Capacité à 0**, **À positionner**
+(salles encore dans le bâtiment placeholder de campus-factory).
+
+Les prédicats vivent dans `services/room_service.py` (`is_unavailable()`,
+`has_no_gestionnaire()`, `has_suspicious_capacity()`,
+`is_awaiting_placement()`) et non dans la vue : ce sont des questions métier,
+réutilisables ailleurs (un rapport d'intégrité, par exemple), et surtout
+testables sans construire d'UI. `ui/room_table_view.py` ne fait que les
+habiller d'un libellé et d'une icône dans `PREDEFINED_FILTERS`. Ajouter un
+filtre, c'est donc un prédicat dans le service et une ligne dans ce tuple.
+
+Trois détails de comportement :
+
+- **Les filtres sont cumulatifs** : chacun restreint le résultat des autres
+  (un ET, pas un OU).
+- **Activer un filtre sort du mode « une seule salle »** ouvert par un
+  double-clic sur le plan (`focus_room_id`), au même titre que retoucher la
+  recherche — sinon le filtre resterait sans effet visible.
+- La zone de filtres se redessine à chaque bascule, et pas seulement la
+  liste : c'est elle qui fait apparaître le bouton « Tout effacer ».
+
+`PENDING_BUILDING_NAME` a migré de `export_cps.py` vers `model.py` à cette
+occasion : la convention de nommage du bâtiment placeholder n'est pas une
+règle d'export, c'est une convention de données que l'export et la table
+consultent tous les deux.
+
 ### Thème clair et thème sombre dans les SVG
 
 Le reste de la page suit le thème par CSS ; les vues SVG, non. Le plan est
@@ -385,6 +416,7 @@ Deux règles maintiennent ce découpage praticable :
 - [x] Délister `data.json` et accueillir un campus vide par une proposition d'import
 - [x] Éditer le nom du campus (celui qui part dans le `.cps` exporté)
 - [x] Faire suivre le thème clair/sombre aux vues SVG (plan 2D, plan du campus, vue isométrique)
+- [x] Filtres prédéfinis dans « Toutes les salles » (indisponibles, sans gestionnaire, capacité à 0, à positionner)
 
 #### Idées
 
@@ -392,7 +424,7 @@ Navigation inverse : dans la table "Toutes les salles" (ou la fiche détaillée)
 
 **2. Qualité et intégrité des données**
 - Finir la validation JSON schema — c'était déjà noté comme tâche ouverte : verrouiller les enums réels (roomType, access, type) extraits de model.py, pour que "Valider .cps" détecte vraiment les incohérences plutôt que de rester permissif.
-- Rapport d'intégrité : un dialog "Salles sans gestionnaire", "Capacité à 0 ou suspecte", "Doublons de nom de salle" — utile après un import .cps massif pour repérer les trous.
+- Rapport d'intégrité : les filtres prédéfinis de la table couvrent déjà "Salles sans gestionnaire" et "Capacité à 0". Restent les "Doublons de nom de salle", qui demandent un comptage global plutôt qu'un prédicat par salle, et une vue de synthèse chiffrée après un import .cps massif.
 - Gestionnaires orphelins : afficher/nettoyer les Gestionnaire qui ne sont assignés à aucune salle (accumulation possible après des suppressions de salles).
 
 **3. Productivité sur les tables**
